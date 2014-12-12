@@ -1,42 +1,47 @@
 // Both boards are slaves, wait until event to change to master mode, send data to the slave board, then changes back from master to slave mode
 #include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #define BADGER_ADDRESS 0x9
 #define LOADER_ADDRESS 0x8  
+
+#define OPEN 1
+#define CLOSE 0
+
+#define NUM_SERVOS 8
 
 void setup() {
 
   pinMode(13, OUTPUT);
   Serial.begin(9600);
-  Wire.begin(BADGER_ADDRESS);
+  Wire.begin(LOADER_ADDRESS);
   Wire.onReceive(receiveEvent);
   Wire.onRequest(requestEvent);
 }
 
+int state = 0;
+
 void loop() 
 {
-  
-  Wire.beginTransmission(LOADER_ADDRESS); // Master writer
-  Wire.write("badger (master) writing to loader (slave)");  
-  Wire.endTransmission();    
-  delay(1000);
-
-  Wire.requestFrom(LOADER_ADDRESS, 28); // Master reader
-  
-  while(Wire.available())    // slave may send less than requested
-  { 
-    char c = Wire.read(); // receive a byte as character
-    Serial.print(c);         // print the character
-  }
-  Serial.println();
-  
-  
+     sendFlapToClose(0, state);
+     state = (state + 1) % 2;
+     delay(5000); 
 }
 
-// function that executes when data is received from loader
+void sendFlapToClose(int servonum, int state)
+{
+  Wire.beginTransmission(BADGER_ADDRESS); // Master writer
+  Wire.write(servonum);  
+  Wire.write(state);
+  Wire.endTransmission();
+  Serial.print(servonum);
+  Serial.println(state);  
+}
+
+// function that executes when data is received from badger/slave
 void receiveEvent(int bytes)
 {
-  while(Wire.available())
+  while(Wire.available() > 0)
   {
     char y = Wire.read();   
     Serial.print(y);             
@@ -44,8 +49,8 @@ void receiveEvent(int bytes)
   Serial.println();
 }
 
-// function that executes when data is requested by loader
+// function that executes when data is requested by badger/master
 void requestEvent()
 {
-  Wire.write("Responding to loader request"); // 28 bytes
+  Wire.write("Responding to badger request"); // 28 bytes
 }
