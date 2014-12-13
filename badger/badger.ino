@@ -13,31 +13,53 @@
 
 Adafruit_PWMServoDriver servos = Adafruit_PWMServoDriver();
 
+// Order to close/open flaps
+int index = 0;
 int close_order[NUM_SERVOS] = {0, 1, 2, 3, 4, 5, 6, 7};
+int open_order[NUM_SERVOS] = {0, 1, 2, 3, 4, 5, 6, 7};
+
 int count = 0;
+const int buttonOne = 2;
+const int buttonTwo = 3;
+
+boolean all_flaps_closed = false;
 
 void setup() {
-
   pinMode(13, OUTPUT);
+  pinMode(2, INPUT);
   Serial.begin(9600);
   Wire.begin(BADGER_ADDRESS);
   Wire.onReceive(receiveEvent);
   Wire.onRequest(requestEvent);
-  
   servos.begin();
   servos.setPWMFreq(100);
-  for(int i = 0; i < 230; i += 5){
-    servos.setPWM(0, 0, map( i, 0, 1000, 0, 4096 ));
-    delay(100);  
-  }
+
   servos.setPWM(0, 0, map( 0, 0, 1000, 0, 4096 ));  
 }
 
 boolean flag = true;
 
 void loop() 
-{ 
-  delay(500);
+{        
+  static int count = 0;
+  static boolean ready = true;
+  if( !ready || digitalRead(buttonOne) ){
+    ready = true;
+  } else{
+    ready = false;
+    count = (count + 1) % 2;
+    switch(count){
+      case 0:
+        servos.setPWM(0, 0, 1000);
+        Serial.println("Close");
+        break;
+      case 1:
+        servos.setPWM(0, 0, 400);
+        Serial.println("Open");
+        break;
+    }    
+    delay(500);
+  }
 }
 
 // function that executes when data is received from loader
@@ -57,56 +79,44 @@ void receiveEvent(int bytes)
   Serial.println();
   
 // toggleFlaps(servo_to_set, servo_state);
-// testFlaps();
+ closeFlaps();
+  confirmMessage();
 }
 
 // toggle a a servo to open or close
 void toggleFlaps(int servonum, int state)
 {
-  uint16_t end = 1100;  
+  uint16_t pulselen = 1100;  
   if(state == OPEN) 
-     end = 400;
+     pulselen = 400;
 
-  servos.setPWM(servonum, 0, end);
+  servos.setPWM(servonum, 0, pulselen);
 }
 
-void testFlaps()
+// Cycles through all flaps to close in order, closes 1 flap
+void closeFlaps()
 {
-    count = (count + 1) % 8;
-    switch(count){
-      case 0:
-        servos.setPWM(4, 0, 1100);
-        Serial.println("Close Top");
-        break;
-      case 1:
-        servos.setPWM(1, 0, 400);
-        Serial.println("Open bottom");
-        break;
-      case 2:
-        servos.setPWM(2, 0, 400);
-        Serial.println("Open Second from bottom");
-        break;
-      case 3:
-        servos.setPWM(3, 0, 400);
-        Serial.println("Open second from top");
-        break;
-      case 4:
-        servos.setPWM(4, 0, 400);
-        Serial.println("Open top");
-        break;
-      case 5:
-        servos.setPWM(1, 0, 1100);
-        Serial.println("Close bottom");
-        break;
-      case 6:
-        servos.setPWM(2, 0, 1100);
-        Serial.println("Close second from bottom");
-        break;
-      case 7: 
-        servos.setPWM(3, 0, 1100);
-        Serial.println("Close second from top");
-        break;
-    } 
+  servos.setPWM(close_order[index], 0, 1100);
+  index++;
+  
+  if(index == 8)
+  {
+    all_flaps_closed = true;
+    index = 0;
+  }
+}
+
+// Opens a flap
+void openFlaps()
+{
+  servos.setPWM(close_order[index], 0, 400);
+  index++;
+  
+  if(index == 8)
+  {
+    all_flaps_closed = true;   
+    index = 0;
+  }
 }
 
 void closeAllFlaps()
@@ -115,6 +125,14 @@ void closeAllFlaps()
   {
      servos.setPWM(i, 0, 1100);
   } 
+}
+
+// Confirm to loader arduino that we closed the flap
+void confirmMessage()
+{
+  Wire.beginTransmission(LOADER_ADDRESS); 
+  Wire.write(254);  
+  Wire.endTransmission();
 }
 
 // function that executes when data is requested by loader

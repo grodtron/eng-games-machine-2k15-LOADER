@@ -9,9 +9,10 @@
 #define CLOSE 0
 
 #define NUM_SERVOS 8
+boolean message_received = false;
+
 
 void setup() {
-
   pinMode(13, OUTPUT);
   Serial.begin(9600);
   Wire.begin(LOADER_ADDRESS);
@@ -35,7 +36,8 @@ void sendFlapToClose(int servonum, int state)
   Wire.write(state);
   Wire.endTransmission();
   Serial.print(servonum);
-  Serial.println(state);  
+  Serial.println(state);
+  message_received = false;
 }
 
 // function that executes when data is received from badger/slave
@@ -43,10 +45,10 @@ void receiveEvent(int bytes)
 {
   while(Wire.available() > 0)
   {
-    char y = Wire.read();   
-    Serial.print(y);             
+    int x = Wire.read();   
+    Serial.println(x);             
   }
-  Serial.println();
+  message_received = true;
 }
 
 // function that executes when data is requested by badger/master
