@@ -1,5 +1,6 @@
+// TODO: Control rail motor to drop bags at right spot 
+
 #include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
 
 #define BADGER_ADDRESS 0x9
 #define LOADER_ADDRESS 0x8  
@@ -115,11 +116,12 @@ void loop() {
     motorMove(pickDistance, UP);
     delay(100);
   }
-  
-  // Move rail
-  
+    
   motorMove(3500, UP, stopMotorsOnLowerHallSensor);
   delay(500);
+  
+  // Move rail
+
   if(analogRead(weightSensePin) > weightSenseThreshold){
     Serial.println("Dropping");
     motorMove(300, UP, stopMotorsOnUpperHallSensor);
@@ -168,7 +170,6 @@ void sendFlapToClose(int servonum, int state)
   Wire.endTransmission();
   Serial.print(servonum);
   Serial.println(state);
-  message_received = false;
 }
 
 // function that executes when data is received from badger/slave
@@ -179,7 +180,6 @@ void receiveEvent(int bytes)
     int x = Wire.read();   
     Serial.println(x);             
   }
-  message_received = true;
 }
 
 // function that executes when data is requested by badger/master
