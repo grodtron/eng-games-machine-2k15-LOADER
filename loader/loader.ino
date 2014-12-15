@@ -9,14 +9,13 @@
 
 #define BADGER_ADDRESS 0x9
 #define LOADER_ADDRESS 0x8 
+#define directionDOWN 1
+#define directionUP   0
 
 int val;
-int n = LOW;
 int encoderPin = 5; // sensor is on T1 and is counted using the 16 bit timer/counter 1 
-int DOWNPin = A0; // blue
-int UPPin = 6; // white
-const int DOWN = 1;
-const int UP = 0;
+int DOWNPin = A0;   // blue
+int UPPin = 6;      // white
 
 const int linearMotorAwayPin = 7;
 const int linearMotorHomePin = 2;
@@ -52,12 +51,16 @@ void setup() {
   pinMode(linearAwayPin, INPUT);
   pinMode(linearHomePin, INPUT);
 
+  Wire.begin(LOADER_ADDRESS);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+
   Serial.begin (9600);
 
   configureCounter();
 
   Serial.print("Homing magnet... ");
-  motorMove(3500, UP, 255, stopMotorsOnLowerHallSensor);
+  motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
   Serial.println("done");
 
   Serial.print("Homing linear... ");
@@ -123,12 +126,12 @@ int getCurrentMoveCount(){ //UNUSED
 void loop() {
   Serial.println("== loop ==");
   Serial.println("Picking");
-  motorMove(3000, DOWN);
+  motorMove(3000, directionDOWN);
   delay(200);
   Serial.println("Homing");
   
   const int pickDistance = 800;
-  motorMove(pickDistance, UP);
+  motorMove(pickDistance, directionUP);
   delay(100);
   int count = 0;
   while(analogRead(weightSensePin) < weightSenseThreshold){
@@ -148,8 +151,8 @@ void loop() {
       digitalWrite(linearMotorAwayPin, LOW);
     }
     
-    motorMove(pickDistance, DOWN);
-    motorMove(pickDistance, UP);
+    motorMove(pickDistance, directionDOWN);
+    motorMove(pickDistance, directionUP);
     Serial.print("read value: ");
     Serial.print(analogRead(weightSensePin));
     Serial.print(" vs threshold " );
@@ -158,18 +161,19 @@ void loop() {
     delay(200);
   }
   
-  motorMove(3500, UP, 255, stopMotorsOnLowerHallSensor);
+  motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
   delay(500);
 
   int weight = analogRead(weightSensePin);
   Serial.println(weight);
 
   if(weight > weightSenseThreshold){
-
+    /*
     if(weight > twoBagThreshold){
       Serial.println("Got two bags Dropping");
-      motorMove(300, UP, 255, stopMotorsOnUpperHallSensor);      
+      motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
     }else{
+    */
       Serial.println("Dropping");
       
       // Go to dropping position
@@ -179,7 +183,7 @@ void loop() {
       digitalWrite(linearMotorHomePin, LOW);
       digitalWrite(linearMotorAwayPin, LOW);
       
-      motorMove(300, UP, 255, stopMotorsOnUpperHallSensor);
+      motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
       
       // Go back to home position
       digitalWrite(linearMotorHomePin, HIGH);
@@ -187,8 +191,8 @@ void loop() {
       while(! digitalRead(linearHomePin) );
       digitalWrite(linearMotorHomePin, LOW);
       digitalWrite(linearMotorAwayPin, LOW);
-    }
-
+    //}
+  
   }
   else
   {    
@@ -203,7 +207,7 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
   int count = 0;
   speed = speed % 256;
   
-  if(direction == DOWN) { // move DOWN
+  if(direction == directionDOWN) { // move DOWN
     digitalWrite(DOWNPin, HIGH);
     analogWrite(UPPin, 255 - speed);
   }
@@ -219,7 +223,7 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
 
   return true;
 }
-/*
+
 void sendFlapToClose(int servonum, int state)
 {
   Wire.beginTransmission(BADGER_ADDRESS); // Master writer
@@ -244,4 +248,4 @@ void receiveEvent(int bytes)
 void requestEvent()
 {
   Wire.write("Responding to badger request"); // 28 bytes
-}*/
+}
