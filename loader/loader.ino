@@ -31,9 +31,13 @@ const int lowerHallSensePin = A1;
 const int upperHallSensePin = A2;
 
 volatile boolean motorIsON;
-
+//whether going to far or close side
+boolean isGoingFarSide;
 //distance the magnet goes up/down by to check/get bags
 const int pickDistance = 800;
+
+int delayNextRandomPos = 550;
+int delayFarSideOfTower = 1200;
 
 #define MOTORS_OFF() do {     \
   digitalWrite(DOWNPin, LOW); \
@@ -68,6 +72,7 @@ void setup() {
   Serial.println("done");
 
   linearMotorToHomePosition();
+  isGoingFarSide = false;
 }
 
 void configureCounter(){
@@ -125,7 +130,7 @@ void loop() {
   motorMove(3000, directionDOWN);
   delay(200);
   Serial.println("Homing");
-  
+
   motorMove(pickDistance, directionUP);
   delay(100);
   int count = 0;
@@ -133,9 +138,7 @@ void loop() {
     if(++count % 3 == 0){
       linearMotorToHomePosition();
     }else{
-      /* stops based on a delay
-         makes exact position of drop a bit random */
-      linearMotorToDroppingPosition(0);
+      linearMotorToNewRandomPickingPosition();
     }
 
     motorMove(pickDistance, directionDOWN);
@@ -161,8 +164,7 @@ void loop() {
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
     }else{*/
       Serial.println("Dropping the one bag");
-      // stops based on LinearAwaySensor reading
-      linearMotorToDroppingPosition(1);
+      linearMotorToDroppingPosition();
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
       linearMotorToHomePosition();
     //}
@@ -173,14 +175,28 @@ void loop() {
   }
 }
 
-void linearMotorToDroppingPosition (int check) {
+void linearMotorToDroppingPosition () {
+  int count = 0;
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, HIGH);
-  if (check == 0) {
-    delay(550);
-  }else{
-    while(! digitalRead(linearAwayPin) );
-  }
+  while(! digitalRead(linearAwayPin) );
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, LOW);
+    if (isGoingFarSide) {
+      digitalWrite(linearMotorHomePin, LOW);
+      digitalWrite(linearMotorAwayPin, HIGH);
+      delay(delayFarSideOfTower);
+      while(! digitalRead(linearAwayPin) );
+      digitalWrite(linearMotorHomePin, LOW);
+      digitalWrite(linearMotorAwayPin, LOW);
+    }
+  isGoingFarSide = !isGoingFarSide;
+}
+
+void linearMotorToNewRandomPickingPosition () {
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, HIGH);
+  delay(delayNextRandomPos);
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
 }
