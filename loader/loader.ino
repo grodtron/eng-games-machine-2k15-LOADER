@@ -25,16 +25,20 @@ const int linearAwayPin = 3;
 
 const int weightSensePin = A3;
 const int weightSenseThreshold = 512;
+const int twoBagThreshold = 590;
 
 const int lowerHallSensePin = A1;
 const int upperHallSensePin = A2;
 
-volatile boolean counting;
+volatile boolean motorIsON;
+
+//distance the magnet goes up/down by to check/get bags
+const int pickDistance = 800;
 
 #define MOTORS_OFF() do {     \
   digitalWrite(DOWNPin, LOW); \
   digitalWrite(UPPin, LOW);   \
-  counting = false;           \
+  motorIsON = false;           \
 } while(0)
 
 bool motorMove(int steps, int direction, int speed=255, void(*loopFunc)() = NULL);
@@ -50,11 +54,11 @@ void setup() {
   pinMode(linearMotorHomePin, OUTPUT);
   pinMode(linearAwayPin, INPUT);
   pinMode(linearHomePin, INPUT);
-
+  /*
   Wire.begin(LOADER_ADDRESS);
   Wire.onReceive(receiveEvent);
   Wire.onRequest(requestEvent);
-
+  */
   Serial.begin (9600);
 
   configureCounter();
@@ -63,17 +67,10 @@ void setup() {
   motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
   Serial.println("done");
 
-  Serial.print("Homing linear... ");
-  digitalWrite(linearMotorHomePin, HIGH);
-  digitalWrite(linearMotorAwayPin, LOW);
-  while(! digitalRead(linearHomePin) );
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, LOW);
-  Serial.println("done");
+  linearMotorToHomePosition();
 }
 
 void configureCounter(){
- 
  TCCR1A = 0;
  TCCR1B =  (1 << WGM12) // CTC mode using T1 as the input for counting events (page 136)
            | (1 << CS12) | (1 << CS11) | (1 << CS10) // Clock on T1 rising edge (page 137)
@@ -86,24 +83,22 @@ void configureCounter(){
  // OCR1AH and OCR1AL used to set n of ticks
 }
 
-ISR(TIMER1_COMPA_vect) {
-  MOTORS_OFF();
-}
+ISR(TIMER1_COMPA_vect) { MOTORS_OFF(); }
 
 void stopMotorsOnLowerHallSensor(){
   while(! digitalRead(lowerHallSensePin) );
- 
+
    MOTORS_OFF();
 }
 
 void stopMotorsOnUpperHallSensor(){
   while(! digitalRead(upperHallSensePin) );
- 
+
    MOTORS_OFF();
 }
 
 void startCountingUpTo(int steps){
-  counting = true;
+  motorIsON = true;
   // count up to `steps`. NB that OCR1AH must be written *before* OCR1AL
   OCR1AH = 0xff & (steps >> 8);
   OCR1AL = 0xff &  steps;
@@ -124,33 +119,25 @@ int getCurrentMoveCount(){ //UNUSED
 }
 
 void loop() {
+
   Serial.println("== loop ==");
   Serial.println("Picking");
   motorMove(3000, directionDOWN);
   delay(200);
   Serial.println("Homing");
   
-  const int pickDistance = 800;
   motorMove(pickDistance, directionUP);
   delay(100);
   int count = 0;
   while(analogRead(weightSensePin) < weightSenseThreshold){
     if(++count % 3 == 0){
-      // Go to dropping position
-      digitalWrite(linearMotorHomePin, HIGH);
-      digitalWrite(linearMotorAwayPin, LOW);
-      while(! digitalRead(linearHomePin) );
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, LOW);      
+      linearMotorToHomePosition();
     }else{
-      // Go to dropping position
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, HIGH);
-      delay(550);
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, LOW);
+      /* stops based on a delay
+         makes exact position of drop a bit random */
+      linearMotorToDroppingPosition(0);
     }
-    
+
     motorMove(pickDistance, directionDOWN);
     motorMove(pickDistance, directionUP);
     Serial.print("read value: ");
@@ -160,7 +147,7 @@ void loop() {
 
     delay(200);
   }
-  
+
   motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
   delay(500);
 
@@ -168,37 +155,44 @@ void loop() {
   Serial.println(weight);
 
   if(weight > weightSenseThreshold){
-    /*
-    if(weight > twoBagThreshold){
-      Serial.println("Got two bags Dropping");
+    /*if(weight > twoBagThreshold){
+      Serial.println("Got two bags, Dropping!");
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
-    }else{
-    */
-      Serial.println("Dropping");
-      
-      // Go to dropping position
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, HIGH);
-      while(! digitalRead(linearAwayPin) );
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, LOW);
-      
+    }else{*/
+      Serial.println("Dropping the one bag");
+      // stops based on LinearAwaySensor reading
+      linearMotorToDroppingPosition(1);
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
-      
-      // Go back to home position
-      digitalWrite(linearMotorHomePin, HIGH);
-      digitalWrite(linearMotorAwayPin, LOW);
-      while(! digitalRead(linearHomePin) );
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, LOW);
+      linearMotorToHomePosition();
     //}
-  
   }
   else
   {    
     Serial.println("no bag :(");
   }
-} 
+}
+
+void linearMotorToDroppingPosition (int check) {
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, HIGH);
+  if (check == 0) {
+    delay(550);
+  }else{
+    while(! digitalRead(linearAwayPin) );
+  }
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, LOW);
+}
+
+void linearMotorToHomePosition () {
+  Serial.print("Homing linear... ");
+  digitalWrite(linearMotorHomePin, HIGH);
+  digitalWrite(linearMotorAwayPin, LOW);
+  while(! digitalRead(linearHomePin) );
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, LOW);
+  Serial.println("done");
+}
 
 // Move n steps, then stop
 bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
@@ -217,13 +211,14 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
   }
 
   startCountingUpTo(steps);
-  while(counting){
+  while(motorIsON){
     if (loopFunc) loopFunc();
   }
 
   return true;
 }
 
+/*
 void sendFlapToClose(int servonum, int state)
 {
   Wire.beginTransmission(BADGER_ADDRESS); // Master writer
@@ -248,4 +243,4 @@ void receiveEvent(int bytes)
 void requestEvent()
 {
   Wire.write("Responding to badger request"); // 28 bytes
-}
+}*/
