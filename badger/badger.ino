@@ -89,7 +89,7 @@ void receiveEvent(int bytes)
 // Cycles through all flaps to close in order, closes 1 flap
 void closeFlaps()
 {
-  if(bag_count >= 8) {
+  if(bag_count >= MAX_BAG_COUNT) {
      Serial.println("wtf got more than 8 bags"); 
      return;
   }

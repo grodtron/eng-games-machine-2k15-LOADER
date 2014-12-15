@@ -58,11 +58,10 @@ void setup() {
   pinMode(linearMotorHomePin, OUTPUT);
   pinMode(linearAwayPin, INPUT);
   pinMode(linearHomePin, INPUT);
-  /*
+  
   Wire.begin(LOADER_ADDRESS);
   Wire.onReceive(receiveEvent);
-  Wire.onRequest(requestEvent);
-  */
+
   Serial.begin (9600);
 
   configureCounter();
@@ -166,6 +165,7 @@ void loop() {
       Serial.println("Dropping the one bag");
       linearMotorToDroppingPosition();
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
+      sendFlapToClose(0);
       linearMotorToHomePosition();
     //}
   }
@@ -235,15 +235,13 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
   return true;
 }
 
-/*
-void sendFlapToClose(int servonum, int state)
+
+void sendFlapToClose(int tower)
 {
   Wire.beginTransmission(BADGER_ADDRESS); // Master writer
-  Wire.write(servonum);  
-  Wire.write(state);
+  Wire.write(tower);
   Wire.endTransmission();
-  Serial.print(servonum);
-  Serial.println(state);
+  Serial.println(tower);
 }
 
 // function that executes when data is received from badger/slave
@@ -255,7 +253,7 @@ void receiveEvent(int bytes)
     Serial.println(x);             
   }
 }
-
+/*
 // function that executes when data is requested by badger/master
 void requestEvent()
 {
