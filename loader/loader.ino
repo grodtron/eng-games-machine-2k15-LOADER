@@ -24,7 +24,7 @@ const int linearHomePin = 4;
 const int linearAwayPin = 3;
 
 const int weightSensePin = A3;
-const int weightSenseThreshold = 512;
+const int weightSenseThreshold = 512; // 480 !
 const int twoBagThreshold = 590;
 
 const int lowerHallSensePin = A1;
@@ -152,6 +152,7 @@ void loop() {
   delay(500);
 
   int weight = analogRead(weightSensePin);
+  Serial.print("weight pulled value: ");
   Serial.println(weight);
 
   if(weight > weightSenseThreshold){
