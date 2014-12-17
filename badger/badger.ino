@@ -13,7 +13,8 @@
 Adafruit_PWMServoDriver servos = Adafruit_PWMServoDriver();
 
 // Order to close/open flaps
-const int closeOrder[8] = {1, 5, 2, 6, 3, 7, 4, 8};
+//const int closeOrder[8] = {1, 5, 2, 6, 3, 7, 4, 8};
+const int closeOrder[MAX_BAG_COUNT] = {1, 2, 3, 4, 5, 6, 7, 8};
 
 int count = 0;
 const int buttonOne = A0;
@@ -21,7 +22,7 @@ const int buttonTwo = 3;
 
 boolean all_flaps_closed = false;
 
-int bag_count = 0;
+int bag_count = 1;
 
 void setup() {
   pinMode(buttonOne, INPUT);
@@ -33,12 +34,12 @@ void setup() {
   servos.setPWMFreq(100); 
   
   // Open all but bottom flaps
-  for(int i = 2; i <= NUM_SERVOS; ++i) {
+  for(int i = 1; i <= 4; ++i) {
     servos.setPWM(closeOrder[i], 0, 400);
     delay(500);
   }
   
-  for(int i = 0; i < 2; ++i) {
+  for(int i = 0; i < 1; ++i) {
     servos.setPWM(closeOrder[i], 0, 1100);
     delay(500);
   }
@@ -48,7 +49,6 @@ void setup() {
 }
 
 boolean flag = true;
-static int servoIndex = 0;
 
 volatile byte received = false;
 
@@ -57,22 +57,16 @@ void loop()
   static boolean ready = true;
   
   if (received) {
-//    Serial.println("got something");
+    Serial.println("got something");
+    delay(750);
     closeFlaps();
     received = false;
   }
   else {
-//    Serial.println("Nothing yet");
+    Serial.println("Nothing yet");
   }
-//  delay(500);
+  delay(500);
 
-  if( !ready || digitalRead(buttonOne) ){
-    ready = true;
-  } else{
-    ready = false;
-    openFlaps();
-    delay(500);
-  }  
 }
 
 // function that executes when data is received from loader
@@ -97,6 +91,14 @@ void closeFlaps()
   Serial.print("Closing servo ");
   Serial.println(closeOrder[bag_count]);
   servos.setPWM(closeOrder[bag_count++], 0, 1100);
+  // Open back flaps for testing
+  if(bag_count == 5) {
+    bag_count = 1;
+    for(int i = 1; i <= 4; ++i) {
+      servos.setPWM(closeOrder[i], 0, 400);
+      delay(500);
+    }    
+  }
   delay(500);
 }
 
