@@ -7,8 +7,8 @@
  */
 #include <Wire.h>
 
-#define BADGER_ADDRESS 0x9
-#define LOADER_ADDRESS 0x8 
+#define BADGER_ADDRESS 0x20
+#define LOADER_ADDRESS 0x21
 #define directionDOWN 1
 #define directionUP   0
 
@@ -24,7 +24,7 @@ const int linearHomePin = 4;
 const int linearAwayPin = 3;
 
 const int weightSensePin = A3;
-const int weightSenseThreshold = 512; // 480 !
+const int weightSenseThreshold = 400; // 480 !
 const int twoBagThreshold = 590;
 
 const int lowerHallSensePin = A1;
@@ -47,7 +47,12 @@ int delayFarSideOfTower = 1200;
 
 bool motorMove(int steps, int direction, int speed=255, void(*loopFunc)() = NULL);
 
-void setup() { 
+void setup() {
+  Wire.begin(LOADER_ADDRESS);
+  Wire.onReceive(receiveEvent);
+
+  Serial.begin (9600);
+ 
   pinMode (encoderPin,INPUT);
   pinMode (lowerHallSensePin,INPUT);
   pinMode (upperHallSensePin,INPUT);
@@ -157,8 +162,8 @@ void loop() {
   Serial.print("weight pulled value: ");
   Serial.println(weight);
 
-  if(weight > weightSenseThreshold){
-    /*if(weight > twoBagThreshold){
+  if(weight > weightSenseThreshold){/*
+    if(weight > twoBagThreshold){
       Serial.println("Got two bags, Dropping!");
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
     }else{*/
@@ -166,8 +171,7 @@ void loop() {
       linearMotorToDroppingPosition();
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
       sendFlapToClose(0);
-      linearMotorToHomePosition();
-    //}
+      linearMotorToHomePosition();      
   }
   else
   {    
@@ -181,7 +185,7 @@ void linearMotorToDroppingPosition () {
   digitalWrite(linearMotorAwayPin, HIGH);
   while(! digitalRead(linearAwayPin) );
   digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, LOW);
+  digitalWrite(linearMotorAwayPin, LOW);/*
     if (isGoingFarSide) {
       digitalWrite(linearMotorHomePin, LOW);
       digitalWrite(linearMotorAwayPin, HIGH);
@@ -189,7 +193,7 @@ void linearMotorToDroppingPosition () {
       while(! digitalRead(linearAwayPin) );
       digitalWrite(linearMotorHomePin, LOW);
       digitalWrite(linearMotorAwayPin, LOW);
-    }
+    }*/
   isGoingFarSide = !isGoingFarSide;
 }
 
