@@ -6,21 +6,29 @@ Adafruit_PWMServoDriver servos = Adafruit_PWMServoDriver();
 #define irSensorPin 7      // IR sensor on this pin
 
 const int buttonOne = 0;
-const int buttonTwo = 2;
+const int startButton = 2;
 const int targetPin = 3;
 const int motorPin = 6;
 int holePeriod;
 int woodPeriod;
 
-#define MAX_BAG_COUNT 4
-const int closeOrder[MAX_BAG_COUNT] = {4, 3, 2, 1};
+/* Servos to Pins
+front  -   back tower
+     8 - 1
+     9 - 2
+    10 - 3
+    11 - 4
+*/
+
+#define MAX_BAG_COUNT 8
+const int servoOrder[MAX_BAG_COUNT] = {11, 4, 10, 3, 9, 2, 8, 1};
 const int ShootingSpeed = 1300;
 
-#define CLOSE 1100
+#define CLOSE 1050
 #define OPEN 400
 
-int bag_count = 4;
-boolean button1_ready = true, button2_ready = true, button3_ready = true;
+int bag_count = MAX_BAG_COUNT;
+boolean button1_ready = true, startButtonReady = true;
 
 void setup() {
   Serial.begin(9600);
@@ -30,74 +38,80 @@ void setup() {
   pinMode(targetPin, INPUT);
   digitalWrite(targetPin, HIGH);
   pinMode(buttonOne, INPUT);
-  pinMode(buttonTwo, INPUT);
+  pinMode(startButton, INPUT);
   
   // open all flaps
   for(int i = 0; i < MAX_BAG_COUNT; ++i) {
-    servos.setPWM(closeOrder[i], 0, OPEN);
-    delay(500);
+    servos.setPWM(servoOrder[i], 0, OPEN);
+    delay(1000);
   }
 
-  servos.setPWM(closeOrder[0], 0, CLOSE);
-
-    holePeriod = 0;
-    woodPeriod = 0;
-    while(0 == woodPeriod) {
-      calculateWoodPeriod();
-    }
-    while(0 == holePeriod) {
-      calculateHolePeriod();
-    }
-  /*
-  for(int i = 0; i < 130; i += 10){
-    servos.setPWM(0, 0, map( i, 0, 1000, 0, 4096 ));
-    delay(100);
+  for(int i = 0; i < MAX_BAG_COUNT; ++i) {
+    servos.setPWM(servoOrder[i], 0, CLOSE);
+    delay(1000);
   }
-  servos.setPWM(0, 0, map( 0, 0, 1000, 0, 4096 ));*/
+
+  //servos.setPWM(servoOrder[0], 0, CLOSE);
+  //servos.setPWM(servoOrder[1], 0, CLOSE);
+  
+  holePeriod = 0;
+  woodPeriod = 0;
+  while(0 == woodPeriod) {
+    calculateWoodPeriod();
+  }
+  while(0 == holePeriod) {
+    calculateHolePeriod();
+  }
 }
 
 static boolean ready = true;
 unsigned long initialTime = 0;
 unsigned long finishTime = 0;
 
-int count1 = 0, count2 = 0;
-
 void loop() {  
-  static int count1 = 0, count2 = 0;
+  static int count = 0;
   if(!button1_ready || digitalRead(buttonOne)) {
      button1_ready = true; 
   }else {
     Serial.print("Closing servo ");
-    Serial.println(closeOrder[count1]);
+    Serial.println(servoOrder[count]);
       button1_ready = false;
-      servos.setPWM(closeOrder[count1], 0, CLOSE);
-      count1 = (count1 + 1) % 4;
+      servos.setPWM(servoOrder[count], 0, CLOSE);
+      count = (count + 1) % MAX_BAG_COUNT;
       delay(500);   
   }
   
-  if(!button2_ready || digitalRead(buttonTwo)) {
-     button2_ready = true; 
+  if(!startButtonReady || digitalRead(startButton)) {
+     startButtonReady = true; 
   }else {
-    button2_ready = false;
+    startButtonReady = false;
     Serial.println("Starting shooting process");
     startShooting();
   }
-  
 }
 
 void startShooting() {
- while(bag_count > 0) {
-   openFlaps();
+  int bottomServo; // Bottom servo that will release the bean bang
+  while(bag_count > 0) {   
+   if(bag_count % 2 == 0) { // Alternate bottom servo from which bean bags will be dropped
+     bottomServo = servoOrder[0];
+   }
+   else {
+     bottomServo = servoOrder[1];
+   }
+   Serial.print("Toggling bottom servo: ");
+   Serial.println(bottomServo);
+   servos.setPWM(bottomServo, 0, CLOSE);
+   delay(1000);   
+   openNextFlap();
    delay(1250);
-   servos.setPWM(4, 0, OPEN);
+   servos.setPWM(bottomServo, 0, OPEN);
    timeBagShooting();
-   servos.setPWM(4, 0, CLOSE);
-   delay(1000);
  } 
 }
 
 // Opens a flap
-void openFlaps()
+void openNextFlap()
 {
   if(bag_count < 0) {
     Serial.println("wtf got negative bags");
@@ -105,8 +119,31 @@ void openFlaps()
   }
   
   Serial.print("Opening servo ");
-  Serial.println(closeOrder[MAX_BAG_COUNT - bag_count]);
-  servos.setPWM(closeOrder[MAX_BAG_COUNT - bag_count--], 0, OPEN);
+  Serial.println(servoOrder[MAX_BAG_COUNT - bag_count]);
+  servos.setPWM(servoOrder[MAX_BAG_COUNT - bag_count--], 0, OPEN);
+  delay(500);
+}
+
+// Cycles through all flaps to close in order, closes 1 flap
+void closeNextFlap()
+{
+  if(bag_count >= MAX_BAG_COUNT) {
+     Serial.println("wtf got more than 8 bags"); 
+     return;
+  }
+  
+  Serial.print("Closing servo ");
+  Serial.println(servoOrder[bag_count]);
+  servos.setPWM(servoOrder[bag_count++], 0, 1100);
+  
+  // Open back flaps for testing
+  if(bag_count == 5) {
+    bag_count = 1;
+    for(int i = 1; i <= MAX_BAG_COUNT; ++i) {
+      servos.setPWM(servoOrder[i], 0, 400);
+      delay(500);
+    }    
+  }
   delay(500);
 }
 
