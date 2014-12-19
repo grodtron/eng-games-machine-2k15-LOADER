@@ -21,10 +21,11 @@ front  -   back tower
 */
 
 #define MAX_BAG_COUNT 8
-const int servoOrder[MAX_BAG_COUNT] = {11, 4, 10, 3, 9, 2, 8, 1};
-const int ShootingSpeed = 1300;
+const int servoOrder[MAX_BAG_COUNT] = {11, 4, 10, 3, 9, 2, 8, 1}; // Order to cloe and open flaps, alternating each tower
 
-#define CLOSE 1050
+const int ShootingSpeed = 1300; // Time to reach the target after turning motors on
+
+#define CLOSE 1025
 #define OPEN 400
 
 int bag_count = MAX_BAG_COUNT;
@@ -43,16 +44,11 @@ void setup() {
   // open all flaps
   for(int i = 0; i < MAX_BAG_COUNT; ++i) {
     servos.setPWM(servoOrder[i], 0, OPEN);
-    delay(1000);
+    delay(500);
   }
 
-  for(int i = 0; i < MAX_BAG_COUNT; ++i) {
-    servos.setPWM(servoOrder[i], 0, CLOSE);
-    delay(1000);
-  }
-
-  //servos.setPWM(servoOrder[0], 0, CLOSE);
-  //servos.setPWM(servoOrder[1], 0, CLOSE);
+  servos.setPWM(servoOrder[0], 0, CLOSE+25);
+  servos.setPWM(servoOrder[1], 0, CLOSE);
   
   holePeriod = 0;
   woodPeriod = 0;
@@ -62,6 +58,7 @@ void setup() {
   while(0 == holePeriod) {
     calculateHolePeriod();
   }
+  Serial.println("Done measuring target periods");
 }
 
 static boolean ready = true;
@@ -69,14 +66,21 @@ unsigned long initialTime = 0;
 unsigned long finishTime = 0;
 
 void loop() {  
-  static int count = 0;
+  static int count = 2;
   if(!button1_ready || digitalRead(buttonOne)) {
      button1_ready = true; 
   }else {
     Serial.print("Closing servo ");
     Serial.println(servoOrder[count]);
       button1_ready = false;
-      servos.setPWM(servoOrder[count], 0, CLOSE);
+    if(servoOrder[count] == 2 || servoOrder[count] == 3)
+      servos.setPWM(servoOrder[count], 0, CLOSE-75);
+    else if (servoOrder[count] == 11)
+      servos.setPWM(servoOrder[count], 0, CLOSE+25);
+    else if (servoOrder[count] == 10)
+      servos.setPWM(servoOrder[count], 0, CLOSE+125);
+    else
+       servos.setPWM(servoOrder[count], 0, CLOSE);
       count = (count + 1) % MAX_BAG_COUNT;
       delay(500);   
   }
@@ -86,11 +90,12 @@ void loop() {
   }else {
     startButtonReady = false;
     Serial.println("Starting shooting process");
-    startShooting();
+    shootAllBags();
   }
 }
 
-void startShooting() {
+// Loop to shoot all 8 bags
+void shootAllBags() {
   int bottomServo; // Bottom servo that will release the bean bang
   while(bag_count > 0) {   
    if(bag_count % 2 == 0) { // Alternate bottom servo from which bean bags will be dropped
@@ -110,7 +115,27 @@ void startShooting() {
  } 
 }
 
-// Opens a flap
+// Close specific servo the right amount
+void closeServoFix(int servonum)
+{
+  switch(servonum) {
+    case 2:
+    case 3:
+      servos.setPWM(servonum, 0, CLOSE-75);
+      break;
+    case 10:
+      servos.setPWM(servonum, 0, CLOSE+25);
+      break;
+    case 11:
+      servos.setPWM(servonum, 0, CLOSE+125);
+      break;
+    default:
+      servos.setPWM(servonum, 0, CLOSE);
+      break;
+  } 
+}
+
+// Opens a flap in order
 void openNextFlap()
 {
   if(bag_count < 0) {
@@ -124,7 +149,7 @@ void openNextFlap()
   delay(500);
 }
 
-// Cycles through all flaps to close in order, closes 1 flap
+// Cycles through all flaps to close in order, closes 1 flap at a time
 void closeNextFlap()
 {
   if(bag_count >= MAX_BAG_COUNT) {
@@ -185,6 +210,7 @@ void calculateHolePeriod() {
   }
 }
 
+// Signal to start spinning conveyor belt
 void shootBag() {     // for ~1300 msecs
   for(int i = 0; i < 130; i += 10){
     servos.setPWM(0, 0, map( i, 0, 1000, 0, 4096 ));
@@ -193,6 +219,7 @@ void shootBag() {     // for ~1300 msecs
   servos.setPWM(0, 0, map( 0, 0, 1000, 0, 4096 ));
 }
 
+// Waiting for optimal time to shoot
 void timeBagShooting() {
   long time_to_wait = holePeriod + woodPeriod;
   while (time_to_wait < ShootingSpeed) {
