@@ -1,3 +1,4 @@
+
 /* Read Quadrature Encoder
  * Connect Encoder to Pins encoder0PinA, encoder0PinB, and +5V.
  *
@@ -6,13 +7,33 @@
  *
  */
 #include <Wire.h>
+#include <Servo.h>
 
 #define BADGER_ADDRESS 0x20
 #define LOADER_ADDRESS 0x21
-#define directionDOWN 1
-#define directionUP   0
+#define directionUP    0
+#define directionDOWN  1
+#define FIRST_POS      2
+#define SECOND_POS     3
+#define RANDOM_DELAY   700
+#define SERVO_MID      95
+#define SERVO_RIGHT    120
+#define SERVO_LEFT     70
 
-int val;
+#define DOWN_DELAY 875
+#define UP_DELAY 950
+#define SERVO_ROTATE_DELAY 30
+
+// Number of steps for position
+/*
+  home to bag: ~430 steps
+*/
+#define MID_STEPS 256 
+#define PICKUP_STEPS 175 // number of steps from mid point
+
+Servo myservo;
+int servoPos = 0;
+
 int encoderPin = 5; // sensor is on T1 and is counted using the 16 bit timer/counter 1 
 int DOWNPin = A0;   // blue
 int UPPin = 6;      // white
@@ -22,30 +43,29 @@ const int linearMotorHomePin = 2;
 
 const int linearHomePin = 4;
 const int linearAwayPin = 3;
+const int linearMidPin = A4;
 
 const int weightSensePin = A3;
 const int weightSenseThreshold = 400; // 480 !
 const int twoBagThreshold = 590;
 
-const int lowerHallSensePin = A1;
-const int upperHallSensePin = A2;
+const int upperHallSensePin = A1;
+const int lowerHallSensePin = A2;
 
 volatile boolean motorIsON;
-//whether going to far or close side
-boolean isGoingFarSide;
 //distance the magnet goes up/down by to check/get bags
 const int pickDistance = 800;
-
-int delayNextRandomPos = 550;
-int delayFarSideOfTower = 1200;
 
 #define MOTORS_OFF() do {     \
   digitalWrite(DOWNPin, LOW); \
   digitalWrite(UPPin, LOW);   \
-  motorIsON = false;           \
+  motorIsON = false;          \
 } while(0)
 
 bool motorMove(int steps, int direction, int speed=255, void(*loopFunc)() = NULL);
+void rotationalLoaderMove(void(*pickupFunc)() = NULL);
+int motorCount = 0;
+int linearCount = 0;
 
 void setup() {
   Wire.begin(LOADER_ADDRESS);
@@ -63,20 +83,33 @@ void setup() {
   pinMode(linearMotorHomePin, OUTPUT);
   pinMode(linearAwayPin, INPUT);
   pinMode(linearHomePin, INPUT);
+  pinMode(linearMidPin, INPUT);
+  digitalWrite(linearMidPin, HIGH);
   
   Wire.begin(LOADER_ADDRESS);
   Wire.onReceive(receiveEvent);
 
   Serial.begin (9600);
+  
+  myservo.attach(9); 
+  for(servoPos = 80; servoPos < 90; servoPos += 1)  // goes from 0 degrees to 180 degrees
+  {                                  // in steps of 1 degree
+    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
+    delay(30);                       // waits 15ms for the servo to reach the position
+  }
+  
+  motorIsON = true;
+  motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
+  motorMove(3500, directionDOWN, 255, NULL);  
+  startCountingUpTo(MID_STEPS);
 
-  configureCounter();
-
+//  configureCounter();
+/*
   Serial.print("Homing magnet... ");
   motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
   Serial.println("done");
-
+*/
   linearMotorToHomePosition();
-  isGoingFarSide = false;
 }
 
 void configureCounter(){
@@ -92,43 +125,131 @@ void configureCounter(){
  // OCR1AH and OCR1AL used to set n of ticks
 }
 
-ISR(TIMER1_COMPA_vect) { MOTORS_OFF(); }
+//ISR(TIMER1_COMPA_vect) { MOTORS_OFF(); }
 
 void stopMotorsOnLowerHallSensor(){
+      motorIsON = true;    
+
   while(! digitalRead(lowerHallSensePin) );
+  Serial.println("Lower hall sensor detected");
 
    MOTORS_OFF();
 }
 
 void stopMotorsOnUpperHallSensor(){
+
   while(! digitalRead(upperHallSensePin) );
+  Serial.println("Upper hall sensor detected");
 
    MOTORS_OFF();
 }
 
-void startCountingUpTo(int steps){
-  motorIsON = true;
-  // count up to `steps`. NB that OCR1AH must be written *before* OCR1AL
-  OCR1AH = 0xff & (steps >> 8);
-  OCR1AL = 0xff &  steps;
-  
-  // Zero out the counter register
-  TCNT1H = 0;
-  TCNT1L = 0;
-  
-  // enable output compare interrupt
-  TIMSK1 = (1 << OCIE1A);
-  sei();
-}
-
-int getCurrentMoveCount(){ //UNUSED
-  int val = TCNT1L;
-  val |= TCNT1H << 8;
-  return val;
+void startCountingUpTo(int count){
+  int steps = 0;
+  long start = millis();
+  while (steps < count) {
+     while(digitalRead(encoderPin));
+     while( !digitalRead(encoderPin));
+     Serial.println(steps);
+     steps++; 
+  }
+  MOTORS_OFF();
 }
 
 void loop() {
+  
 
+//  pickMethodOne();
+//  pickMethodTwo();
+
+//  triplePickUp();
+  while(1);
+}
+
+void pickMethodOne() {
+  for (int i = 0; i < 3; ++i) {
+    rotationalLoaderMove(simplePickUp);
+    
+    /*
+    motorIsON = true;
+    motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
+    motorMove(3500, directionDOWN, 255, NULL);
+    startCountingUpTo(MID_STEPS);
+    */
+    
+    linearMotorToNewPickingPosition();
+    delay(1000);
+  }
+  linearMotorToHomePosition();  
+}
+ 
+void pickMethodTwo() {
+  for (int i = 0; i < 3; ++i) {
+    rotationalLoaderMove(triplePickUp);
+    linearMotorToNewPickingPosition();
+    delay(1000);
+  }
+  linearMotorToHomePosition(); 
+}
+
+void triplePickUp() {
+  motorMove(3500, directionDOWN, 255, NULL);
+  startCountingUpTo(PICKUP_STEPS); 
+  // small pickups
+  for(int i = 0; i < 2; ++i) {
+    motorMove(3500, directionUP, 255, NULL);
+    startCountingUpTo(130);
+    delay(250);  
+    motorMove(3500, directionDOWN, 255, NULL);
+    startCountingUpTo(120);     
+  }
+  
+  motorMove(3500, directionUP, 255, NULL);
+  startCountingUpTo(PICKUP_STEPS + 30); 
+}
+
+void simplePickUp() { // simple up down
+  motorMove(3500, directionDOWN, 255, NULL);
+  startCountingUpTo(PICKUP_STEPS);
+  motorMove(3500, directionUP, 255, NULL);
+  startCountingUpTo(PICKUP_STEPS+10);
+}
+
+void rotationalLoaderMove(void(*pickUpFunc)()) {
+  delay(500);
+  pickUpFunc();  
+  for(servoPos = SERVO_MID; servoPos < SERVO_RIGHT; servoPos += 1)  // goes from 0 degrees to 180 degrees
+  {                                  // in steps of 1 degree
+    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
+    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
+  }
+  delay(500);
+  pickUpFunc();
+  for(servoPos = SERVO_RIGHT; servoPos >= SERVO_MID; servoPos -= 1)  // goes from 0 degrees to 180 degrees
+  {                                  // in steps of 1 degree
+    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
+    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
+  }
+  delay(500);
+  pickUpFunc();
+
+  for(servoPos = SERVO_MID; servoPos >= SERVO_LEFT; servoPos -= 1)  // goes from 0 degrees to 180 degrees
+  {                                  // in steps of 1 degree
+    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
+    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
+  }
+  delay(500);
+  pickUpFunc();
+
+  for(servoPos = SERVO_LEFT; servoPos < SERVO_MID; servoPos += 1)  // goes from 0 degrees to 180 degrees
+  {                                  // in steps of 1 degree
+    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
+    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
+  }
+  delay(500);
+  pickUpFunc();
+}
+/*
   Serial.println("== loop ==");
   Serial.println("Picking");
   motorMove(3000, directionDOWN);
@@ -166,7 +287,7 @@ void loop() {
     if(weight > twoBagThreshold){
       Serial.println("Got two bags, Dropping!");
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
-    }else{*/
+    }else{
       Serial.println("Dropping the one bag");
       linearMotorToDroppingPosition();
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
@@ -176,31 +297,12 @@ void loop() {
   else
   {    
     Serial.println("no bag :(");
-  }
-}
+  }*/
 
-void linearMotorToDroppingPosition () {
-  int count = 0;
+void linearMotorToNewPickingPosition () {
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, HIGH);
-  while(! digitalRead(linearAwayPin) );
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, LOW);/*
-    if (isGoingFarSide) {
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, HIGH);
-      delay(delayFarSideOfTower);
-      while(! digitalRead(linearAwayPin) );
-      digitalWrite(linearMotorHomePin, LOW);
-      digitalWrite(linearMotorAwayPin, LOW);
-    }*/
-  isGoingFarSide = !isGoingFarSide;
-}
-
-void linearMotorToNewRandomPickingPosition () {
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, HIGH);
-  delay(delayNextRandomPos);
+  delay(RANDOM_DELAY);
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
 }
@@ -210,6 +312,20 @@ void linearMotorToHomePosition () {
   digitalWrite(linearMotorHomePin, HIGH);
   digitalWrite(linearMotorAwayPin, LOW);
   while(! digitalRead(linearHomePin) );
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, LOW);
+  Serial.println("done");
+}
+
+void linearMotorToDroppingPosition (int pos) {
+  Serial.print("to dropping position linear... ");
+  digitalWrite(linearMotorHomePin, LOW);
+  digitalWrite(linearMotorAwayPin, HIGH);
+  if (pos == FIRST_POS) {
+    while( digitalRead(linearMidPin) );
+  } else if (pos == SECOND_POS) {
+    while(! digitalRead(linearAwayPin) );
+  }
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
   Serial.println("done");
@@ -228,17 +344,15 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
   }
   else { // move UPs
     analogWrite(UPPin, speed);
-    digitalWrite(DOWNPin, LOW);    
+    digitalWrite(DOWNPin, LOW);
   }
-
-  startCountingUpTo(steps);
+//  startCountingUpTo(steps);
   while(motorIsON){
     if (loopFunc) loopFunc();
   }
 
   return true;
 }
-
 
 void sendFlapToClose(int tower)
 {
@@ -257,9 +371,3 @@ void receiveEvent(int bytes)
     Serial.println(x);             
   }
 }
-/*
-// function that executes when data is requested by badger/master
-void requestEvent()
-{
-  Wire.write("Responding to badger request"); // 28 bytes
-}*/
