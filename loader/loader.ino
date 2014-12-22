@@ -13,23 +13,18 @@
 #define LOADER_ADDRESS 0x21
 #define directionUP    0
 #define directionDOWN  1
-#define FIRST_POS      2
-#define SECOND_POS     3
+#define FIRST_POS      0
+#define SECOND_POS     1
 #define RANDOM_DELAY   700
+
 #define SERVO_MID      95
 #define SERVO_RIGHT    120
 #define SERVO_LEFT     70
-
-#define DOWN_DELAY 875
-#define UP_DELAY 950
 #define SERVO_ROTATE_DELAY 30
 
 // Number of steps for position
-/*
-  home to bag: ~430 steps
-*/
-#define MID_STEPS 256 
-#define PICKUP_STEPS 175 // number of steps from mid point
+#define MID_STEPS 1200 
+#define PICKUP_STEPS 850 // number of steps from mid point
 
 Servo myservo;
 int servoPos = 0;
@@ -66,10 +61,10 @@ bool motorMove(int steps, int direction, int speed=255, void(*loopFunc)() = NULL
 void rotationalLoaderMove(void(*pickupFunc)() = NULL);
 int motorCount = 0;
 int linearCount = 0;
+void(*pickUpFunc)();
 
 void setup() {
   Wire.begin(LOADER_ADDRESS);
-  Wire.onReceive(receiveEvent);
 
   Serial.begin (9600);
  
@@ -87,49 +82,24 @@ void setup() {
   digitalWrite(linearMidPin, HIGH);
   
   Wire.begin(LOADER_ADDRESS);
-  Wire.onReceive(receiveEvent);
 
   Serial.begin (9600);
   
   myservo.attach(9); 
-  for(servoPos = 80; servoPos < 90; servoPos += 1)  // goes from 0 degrees to 180 degrees
-  {                                  // in steps of 1 degree
-    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
-    delay(30);                       // waits 15ms for the servo to reach the position
+  for(servoPos = 80; servoPos < 90; servoPos += 1)  
+  {                                
+    myservo.write(servoPos);              
+    delay(30);
   }
-  
-  motorIsON = true;
-  motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
-  motorMove(3500, directionDOWN, 255, NULL);  
-  startCountingUpTo(MID_STEPS);
 
-//  configureCounter();
-/*
-  Serial.print("Homing magnet... ");
-  motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
-  Serial.println("done");
-*/
+  homeMagnet();
+  motorMove(MID_STEPS, directionDOWN, 255, NULL);  
   linearMotorToHomePosition();
+  
+  pickUpFunc = jabRotate;
 }
-
-void configureCounter(){
- TCCR1A = 0;
- TCCR1B =  (1 << WGM12) // CTC mode using T1 as the input for counting events (page 136)
-           | (1 << CS12) | (1 << CS11) | (1 << CS10) // Clock on T1 rising edge (page 137)
-           ;
- TCCR1C = 0;
- 
- // initially disable timer coutner interrupt;
- TIMSK1 = 0;
- // TIMSK1 = (1 << OCIE1A); // interrupt on compare match;
- // OCR1AH and OCR1AL used to set n of ticks
-}
-
-//ISR(TIMER1_COMPA_vect) { MOTORS_OFF(); }
 
 void stopMotorsOnLowerHallSensor(){
-      motorIsON = true;    
-
   while(! digitalRead(lowerHallSensePin) );
   Serial.println("Lower hall sensor detected");
 
@@ -150,185 +120,80 @@ void startCountingUpTo(int count){
   while (steps < count) {
      while(digitalRead(encoderPin));
      while( !digitalRead(encoderPin));
-     Serial.println(steps);
      steps++; 
   }
   MOTORS_OFF();
 }
 
 void loop() {
-  
-
-//  pickMethodOne();
-//  pickMethodTwo();
-
-//  triplePickUp();
-  while(1);
+//  while(1);
+  runLoop();
 }
 
-void pickMethodOne() {
-  for (int i = 0; i < 3; ++i) {
-    rotationalLoaderMove(simplePickUp);
-    
-    /*
-    motorIsON = true;
-    motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
-    motorMove(3500, directionDOWN, 255, NULL);
-    startCountingUpTo(MID_STEPS);
-    */
-    
-    linearMotorToNewPickingPosition();
-    delay(1000);
-  }
-  linearMotorToHomePosition();  
-}
- 
-void pickMethodTwo() {
-  for (int i = 0; i < 3; ++i) {
-    rotationalLoaderMove(triplePickUp);
-    linearMotorToNewPickingPosition();
-    delay(1000);
-  }
-  linearMotorToHomePosition(); 
+void homeMagnet() {
+  Serial.print("Homing magnet... ");
+  analogWrite(UPPin, 255);
+  digitalWrite(DOWNPin, LOW);  
+  stopMotorsOnLowerHallSensor();
 }
 
-void triplePickUp() {
-  motorMove(3500, directionDOWN, 255, NULL);
-  startCountingUpTo(PICKUP_STEPS); 
-  // small pickups
-  for(int i = 0; i < 2; ++i) {
-    motorMove(3500, directionUP, 255, NULL);
-    startCountingUpTo(130);
-    delay(250);  
-    motorMove(3500, directionDOWN, 255, NULL);
-    startCountingUpTo(120);     
-  }
-  
-  motorMove(3500, directionUP, 255, NULL);
-  startCountingUpTo(PICKUP_STEPS + 30); 
+void jabRotate() {
+  static int count = 0;
+  triplePickUp();
+  rotateLoader();
+  if(++count % 9 == 0) {
+    pickUpFunc = swirlLeanback;
+    linearMotorToHomePosition();       
+  }  
 }
 
-void simplePickUp() { // simple up down
-  motorMove(3500, directionDOWN, 255, NULL);
-  startCountingUpTo(PICKUP_STEPS);
-  motorMove(3500, directionUP, 255, NULL);
-  startCountingUpTo(PICKUP_STEPS+10);
+// TODO: Run this twice and go back to triple jab
+void swirlLeanback() {
+  static int count = 0;
+  swirlPickUp();
+  linearMotorToNewPickingPosition(RANDOM_DELAY);
+  if(++count % 3 == 0) {
+    linearMotorToHomePosition(); 
+    homeMagnet();
+    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
+  }
 }
 
-void rotationalLoaderMove(void(*pickUpFunc)()) {
-  delay(500);
-  pickUpFunc();  
-  for(servoPos = SERVO_MID; servoPos < SERVO_RIGHT; servoPos += 1)  // goes from 0 degrees to 180 degrees
-  {                                  // in steps of 1 degree
-    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
-    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
-  }
-  delay(500);
-  pickUpFunc();
-  for(servoPos = SERVO_RIGHT; servoPos >= SERVO_MID; servoPos -= 1)  // goes from 0 degrees to 180 degrees
-  {                                  // in steps of 1 degree
-    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
-    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
-  }
-  delay(500);
-  pickUpFunc();
-
-  for(servoPos = SERVO_MID; servoPos >= SERVO_LEFT; servoPos -= 1)  // goes from 0 degrees to 180 degrees
-  {                                  // in steps of 1 degree
-    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
-    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
-  }
-  delay(500);
-  pickUpFunc();
-
-  for(servoPos = SERVO_LEFT; servoPos < SERVO_MID; servoPos += 1)  // goes from 0 degrees to 180 degrees
-  {                                  // in steps of 1 degree
-    myservo.write(servoPos);              // tell servo to go to position in variable 'pos'
-    delay(SERVO_ROTATE_DELAY);                       // waits 15ms for the servo to reach the position
-  }
-  delay(500);
-  pickUpFunc();
-}
-/*
+void runLoop() {
   Serial.println("== loop ==");
   Serial.println("Picking");
-  motorMove(3000, directionDOWN);
-  delay(200);
-  Serial.println("Homing");
-
-  motorMove(pickDistance, directionUP);
-  delay(100);
-  int count = 0;
-  while(analogRead(weightSensePin) < weightSenseThreshold){
-    if(++count % 3 == 0){
-      linearMotorToHomePosition();
-    }else{
-      linearMotorToNewRandomPickingPosition();
-    }
-
-    motorMove(pickDistance, directionDOWN);
-    motorMove(pickDistance, directionUP);
-    Serial.print("read value: ");
-    Serial.print(analogRead(weightSensePin));
-    Serial.print(" vs threshold " );
-    Serial.println(weightSenseThreshold);
-
-    delay(200);
+  delay(300);
+  static int count = 0;
+  while(isBagPicked() == false){
+    pickUpFunc();
   }
 
-  motorMove(3500, directionUP, 255, stopMotorsOnLowerHallSensor);
+  homeMagnet();
   delay(500);
-
+  int static tower_count = 0;
   int weight = analogRead(weightSensePin);
   Serial.print("weight pulled value: ");
   Serial.println(weight);
 
-  if(weight > weightSenseThreshold){/*
+  if(weight > weightSenseThreshold){
     if(weight > twoBagThreshold){
       Serial.println("Got two bags, Dropping!");
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
     }else{
       Serial.println("Dropping the one bag");
-      linearMotorToDroppingPosition();
+      linearMotorToDroppingPosition(tower_count);
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
-      sendFlapToClose(0);
-      linearMotorToHomePosition();      
+      sendFlapToClose(tower_count);
+      tower_count = (tower_count + 1 ) % 2;
+      linearMotorToHomePosition();
+      motorMove(pickDistance, directionDOWN);
+      homeMagnet(); // default pick distance starts from home position     
+    }
   }
   else
   {    
     Serial.println("no bag :(");
-  }*/
-
-void linearMotorToNewPickingPosition () {
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, HIGH);
-  delay(RANDOM_DELAY);
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, LOW);
-}
-
-void linearMotorToHomePosition () {
-  Serial.print("Homing linear... ");
-  digitalWrite(linearMotorHomePin, HIGH);
-  digitalWrite(linearMotorAwayPin, LOW);
-  while(! digitalRead(linearHomePin) );
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, LOW);
-  Serial.println("done");
-}
-
-void linearMotorToDroppingPosition (int pos) {
-  Serial.print("to dropping position linear... ");
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, HIGH);
-  if (pos == FIRST_POS) {
-    while( digitalRead(linearMidPin) );
-  } else if (pos == SECOND_POS) {
-    while(! digitalRead(linearAwayPin) );
-  }
-  digitalWrite(linearMotorHomePin, LOW);
-  digitalWrite(linearMotorAwayPin, LOW);
-  Serial.println("done");
+  }  
 }
 
 // Move n steps, then stop
@@ -346,12 +211,29 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
     analogWrite(UPPin, speed);
     digitalWrite(DOWNPin, LOW);
   }
-//  startCountingUpTo(steps);
-  while(motorIsON){
-    if (loopFunc) loopFunc();
-  }
+  startCountingUpTo(steps);
 
   return true;
+}
+
+boolean isBagPicked() {
+  Serial.print("read value: ");
+  Serial.print(analogRead(weightSensePin));
+  Serial.print(" vs threshold " );
+  Serial.println(weightSenseThreshold);
+  return (analogRead(weightSensePin) > weightSenseThreshold);
+}
+
+boolean dropBag() {
+//  if(isBagPicked) {
+    Serial.print("Dropping bag... ");
+    analogWrite(UPPin, 255);
+    digitalWrite(DOWNPin, LOW);  
+    stopMotorsOnUpperHallSensor();
+    return true;
+/*  } else {
+    return false;
+  }*/  
 }
 
 void sendFlapToClose(int tower)
@@ -360,14 +242,4 @@ void sendFlapToClose(int tower)
   Wire.write(tower);
   Wire.endTransmission();
   Serial.println(tower);
-}
-
-// function that executes when data is received from badger/slave
-void receiveEvent(int bytes)
-{
-  while(Wire.available() > 0)
-  {
-    int x = Wire.read();   
-    Serial.println(x);             
-  }
 }
