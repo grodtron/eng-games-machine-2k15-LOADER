@@ -1,9 +1,11 @@
 void linearMotorToNewPickingPosition (int delayTime) {
+  Serial.print("Trying new picking position... ");
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, HIGH);
   delay(delayTime);
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
+  Serial.println("done");
 }
 
 void linearMotorToHomePosition () {

@@ -23,8 +23,10 @@
 #define SERVO_ROTATE_DELAY 30
 
 // Number of steps for position
-#define MID_STEPS 1200 
-#define PICKUP_STEPS 850 // number of steps from mid point
+#define MID_STEPS 1400 
+#define PICKUP_STEPS 950 // number of steps from mid point
+#define JAB_STEPS 250
+#define HOVER_STEPS 295
 
 Servo myservo;
 int servoPos = 0;
@@ -41,8 +43,8 @@ const int linearAwayPin = 3;
 const int linearMidPin = A4;
 
 const int weightSensePin = A3;
-const int weightSenseThreshold = 400; // 480 !
-const int twoBagThreshold = 590;
+const int weightSenseThreshold = 518  ; // 480 !
+const int twoBagThreshold = 700;
 
 const int upperHallSensePin = A1;
 const int lowerHallSensePin = A2;
@@ -91,11 +93,10 @@ void setup() {
     myservo.write(servoPos);              
     delay(30);
   }
-
-  homeMagnet();
-  motorMove(MID_STEPS, directionDOWN, 255, NULL);  
-  linearMotorToHomePosition();
   
+  linearMotorToHomePosition();
+  homeMagnet();
+//  motorMove(MID_STEPS*2, directionDOWN, 255, NULL); while(1);
   pickUpFunc = jabRotate;
 }
 
@@ -125,9 +126,14 @@ void startCountingUpTo(int count){
   MOTORS_OFF();
 }
 
-void loop() {
-//  while(1);
-  runLoop();
+void loop() {   
+//  TestLinearMotor();
+  //  while(1);
+//TestWeightSensor();
+
+//  TestDrop();
+//   runLoop();
+
 }
 
 void homeMagnet() {
@@ -139,10 +145,13 @@ void homeMagnet() {
 
 void jabRotate() {
   static int count = 0;
+  if(count > 0) rotateLoader();
+  
   triplePickUp();
-  rotateLoader();
   if(++count % 9 == 0) {
     pickUpFunc = swirlLeanback;
+    rotateLoader(); // So that we return servo to middle before we try swirling
+    centerServo();
     linearMotorToHomePosition();       
   }  
 }
@@ -159,15 +168,35 @@ void swirlLeanback() {
   }
 }
 
+void centerServo() {
+  if(servoPos > SERVO_MID) {
+    for(;servoPos >= SERVO_MID; servoPos -= 1) 
+    {                                  
+      myservo.write(servoPos);             
+      delay(SERVO_ROTATE_DELAY);                       
+    }  
+  } else {
+    for(; servoPos < SERVO_MID; servoPos += 1) 
+    {                            
+      myservo.write(servoPos);              
+      delay(SERVO_ROTATE_DELAY);                       
+    }    
+  }
+
+}
+
 void runLoop() {
   Serial.println("== loop ==");
+  linearMotorToHomePosition();
+  motorMove(MID_STEPS, directionDOWN, 255, NULL);  
   Serial.println("Picking");
   delay(300);
   static int count = 0;
   while(isBagPicked() == false){
     pickUpFunc();
+    delay(300);
   }
-
+  centerServo();
   homeMagnet();
   delay(500);
   int static tower_count = 0;
@@ -175,25 +204,27 @@ void runLoop() {
   Serial.print("weight pulled value: ");
   Serial.println(weight);
 
-  if(weight > weightSenseThreshold){
+  if(isBagPicked() == true){
     if(weight > twoBagThreshold){
       Serial.println("Got two bags, Dropping!");
       motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
     }else{
       Serial.println("Dropping the one bag");
-      linearMotorToDroppingPosition(tower_count);
-      motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);
-      sendFlapToClose(tower_count);
+      linearMotorToDroppingPosition(SECOND_POS);
+      homeMagnet();     
+      delay(500);
+      dropBag();
+      delay(250);
+//      sendFlapToClose(tower_count);
       tower_count = (tower_count + 1 ) % 2;
-      linearMotorToHomePosition();
-      motorMove(pickDistance, directionDOWN);
-      homeMagnet(); // default pick distance starts from home position     
+      motorMove(200, directionDOWN);
     }
   }
   else
   {    
     Serial.println("no bag :(");
-  }  
+  }
+  
 }
 
 // Move n steps, then stop

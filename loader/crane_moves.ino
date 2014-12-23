@@ -1,17 +1,16 @@
-void triplePickUp() {
+void triplePickUp() { // 3 jabs then test pick up
   motorMove(PICKUP_STEPS, directionDOWN, 255, NULL);
-  // small pickups
   for(int i = 0; i < 2; ++i) {
-    motorMove(250, directionUP, 255, NULL);
+    motorMove(JAB_STEPS, directionUP, 255, NULL);
     delay(250);  
-    motorMove(250, directionDOWN, 255, NULL);
+    motorMove(JAB_STEPS, directionDOWN, 255, NULL);
     delay(250);
   }
   
   motorMove(PICKUP_STEPS, directionUP, 255, NULL);
 }
 
-void swirlPickUp() {
+void swirlPickUp() { // jab, turn, jab, return, then test pick up
   motorMove(PICKUP_STEPS, directionDOWN, 255, NULL);
   motorMove(285, directionUP, 255, NULL);
   static int rotate_count = 0;
@@ -21,8 +20,8 @@ void swirlPickUp() {
       myservo.write(servoPos);              
       delay(SERVO_ROTATE_DELAY);                       
     }
-    motorMove(285, directionDOWN, 255, NULL);
-    motorMove(285, directionUP, 255, NULL);    
+    motorMove(HOVER_STEPS, directionDOWN, 255, NULL);
+    motorMove(HOVER_STEPS, directionUP, 255, NULL);    
 
     for(servoPos = SERVO_RIGHT; servoPos >= SERVO_MID; servoPos -= 1) 
     {                                  
@@ -35,8 +34,8 @@ void swirlPickUp() {
       myservo.write(servoPos);              
       delay(20);                       
     }
-    motorMove(285, directionDOWN, 255, NULL);
-    motorMove(285, directionUP, 255, NULL);      
+    motorMove(HOVER_STEPS, directionDOWN, 255, NULL);
+    motorMove(HOVER_STEPS, directionUP, 255, NULL);      
 
     for(servoPos = SERVO_LEFT; servoPos < SERVO_MID; servoPos += 1)  
     {                                
@@ -46,7 +45,7 @@ void swirlPickUp() {
        
   }
   rotate_count = (rotate_count + 1 ) % 2;
-  motorMove(285, directionDOWN, 255, NULL);
+  motorMove(HOVER_STEPS, directionDOWN, 255, NULL);
   delay(250);
   motorMove(PICKUP_STEPS, directionUP, 255, NULL);
 }
