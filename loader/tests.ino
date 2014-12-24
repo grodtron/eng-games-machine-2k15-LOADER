@@ -1,11 +1,10 @@
-void TestSetup() {
-  homeMagnet();
-  linearMotorToHomePosition();
-}
-
-void runAllTests() {
+void runTests() {
   TestPickDistance();
-  TestLinearMotor();  
+  TestLinearMotor();
+  TestServo();
+  TestI2CArduino();
+  TestWeightSensor();
+  TestDrop();
 }
 
 void TestPickDistance() { // for step calibration
@@ -31,7 +30,7 @@ void TestPickDistance() { // for step calibration
   delay(2000);
   motorMove(HOVER_STEPS, directionDOWN, 255, NULL);
   delay(2000);
-  motorMove(HOVER_STEPS, directionUP, 255, NULL);
+  motorMove(PICKUP_STEPS, directionUP, 255, NULL);
   delay(2000);
   homeMagnet();
 }
@@ -39,7 +38,7 @@ void TestPickDistance() { // for step calibration
 void TestLinearMotor() {
   Serial.println("====Testing rail motor====");
   linearMotorToHomePosition();  
-  linearMotorToDroppingPosition(FIRST_POS);
+//  linearMotorToDroppingPosition(FIRST_POS);
   delay(2000);
   linearMotorToDroppingPosition(SECOND_POS);
   linearMotorToHomePosition();  
@@ -47,34 +46,17 @@ void TestLinearMotor() {
 
 void TestServo() {
   Serial.println("====Testing loader servo====");
+  homeMagnet();
 
-  for(servoPos = SERVO_MID; servoPos < SERVO_RIGHT; servoPos += 1) 
-  {                                 
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                      
-  }
-  delay(1000);
-
-  for(servoPos = SERVO_RIGHT; servoPos >= SERVO_MID; servoPos -= 1) 
-  {                                  
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                      
-  }
-  delay(1000);
-
-  for(servoPos = SERVO_MID; servoPos >= SERVO_LEFT; servoPos -= 1) 
-  {                                 
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                       
-  }
-  delay(1000);
-
-  for(servoPos = SERVO_LEFT; servoPos < SERVO_MID; servoPos += 1)
-  {                                
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                    
-  }
-  delay(1000);  
+  motorMove(MID_STEPS + PICKUP_STEPS, directionDOWN, 255, NULL);
+  servoTurnRight(30);
+  delay(2000);
+  centerServo(30);
+  delay(2000);
+  servoTurnLeft(30);
+  delay(2000);
+  centerServo(30);
+  delay(2000);
 }
 
 void TestI2CArduino() {
@@ -101,11 +83,12 @@ void TestWeightSensor() {
 
 void TestDrop() {
   Serial.println("====Testing pickup and drop====");
-
-  homeMagnet();
+  static int tower_count = 0;
   linearMotorToHomePosition();
+  homeMagnet();
   motorMove(MID_STEPS+PICKUP_STEPS, directionDOWN, 255, NULL);  
   delay(1500);
+  linearMotorToDroppingPosition(tower_count++ % 2);
   homeMagnet();
   delay(1000);
   dropBag();
