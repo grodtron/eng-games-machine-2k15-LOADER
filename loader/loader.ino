@@ -1,3 +1,5 @@
+// TODO: More weight sensor checking to see if we have the bag
+
 #include <Wire.h>
 #include <Servo.h>
 
@@ -57,10 +59,10 @@ const int lowerHallSensePin = A2;
 } while(0)
 
 bool motorMove(int steps, int direction, int speed=255, void(*loopFunc)() = NULL);
-void rotationalLoaderMove(void(*pickupFunc)() = NULL);
 void centerServo(int rotate_delay = 15);
-int motorCount = 0;
-int linearCount = 0;
+void linearMotorToHomePosition (boolean lowerMagnetWhileMoving = false);
+void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving = false);
+
 void(*pickUpFunc)();
 
 void setup() {
@@ -94,7 +96,7 @@ void setup() {
   
   linearMotorToHomePosition();
   homeMagnet();
-//  motorMove(MID_STEPS*2, directionDOWN, 255, NULL); while(1);
+  //motorMove(MID_STEPS, directionDOWN, 255, NULL); while(1);
   pickUpFunc = jabRotate;
 }
 
@@ -105,33 +107,30 @@ void loop() {
 
 void runLoop() {
   Serial.println("== loop ==");
-  linearMotorToHomePosition();
-  motorMove(MID_STEPS, directionDOWN, 255, NULL);  
+  linearMotorToHomePosition(true);
+  //homeMagnet();
   Serial.println("Picking");
-  delay(500);
+  delay(250);
 
-  pickUpFunc();
   while(isBagPicked() == false){
     pickUpFunc();
-    delay(300);
+    delay(250);
   }
-    
-  delay(500);
-  int static tower_to_drop = 0;
 
+  delay(250);
+  int static tower_to_drop = 0;
+  
   if(isBagPicked() == true){
     centerServo();
-    homeMagnet();
+    //homeMagnet();
     int weight = analogRead(weightSensePin);
-    Serial.print("weight pulled value: ");
-    Serial.println(weight);
     if(weight > twoBagThreshold){
-      Serial.println("Got two bags, Dropping!");
-      motorMove(300, directionUP, 255, stopMotorsOnUpperHallSensor);      
+      Serial.print("Two bags pulled of value: ");
+      Serial.print(weight);
+      Serial.println("...dropping!");
+      dropBag();
     }else{
-      Serial.println("Dropping the one bag");
-      linearMotorToDroppingPosition(SECOND_POS);
-      homeMagnet();     
+      linearMotorToDroppingPosition(SECOND_POS, true);
       delay(250);
       dropBag();
 //    sendFlapToClose(tower_to_drop);

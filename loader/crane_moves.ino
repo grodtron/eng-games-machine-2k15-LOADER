@@ -1,8 +1,8 @@
 void triplePickUp() { // 3 jabs then test pick up
   motorMove(PICKUP_STEPS, directionDOWN, 255, NULL);
-  for(int i = 0; i < 2; ++i) {
+  for(int i = 0; i < 1; ++i) {
     motorMove(JAB_STEPS, directionUP, 255, NULL);
-    delay(250);  
+    delay(200);  
     motorMove(JAB_STEPS, directionDOWN, 255, NULL);
     delay(250);
   }
@@ -103,72 +103,3 @@ void servoTurnLeft(int rotate_delay) {
     }
   }   
 }
-
-// Below are testing functions, not used ==========================================
-void simpleMethod() { // simple linear pick
-  for (int i = 0; i < 3; ++i) {
-    rotationalLoaderMove(simplePickUp);    
-    linearMotorToNewPickingPosition(RANDOM_DELAY);
-    homeMagnet();
-    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
-  }
-  linearMotorToHomePosition();  
-}
- 
-void jabMethod() { // triple jab
-  for (int i = 0; i < 3; ++i) {
-    rotationalLoaderMove(triplePickUp);
-    linearMotorToNewPickingPosition(RANDOM_DELAY);
-    homeMagnet();
-    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
-  }
-  linearMotorToHomePosition(); 
-}
-
-void swirlMethod() { // swirl pickups
-  for (int i = 0; i < 7; ++i) {
-    swirlPickUp();
-    linearMotorToNewPickingPosition(RANDOM_DELAY);
-    if (i == 3) linearMotorToHomePosition();   
-  }
-  homeMagnet();
-  motorMove(MID_STEPS, directionDOWN, 255, NULL);  
-  linearMotorToHomePosition();   
-}
-
-void rotationalLoaderMove(void(*pickUpFunc)()) {
-  delay(500);
-  pickUpFunc();  
-  for(servoPos = SERVO_MID; servoPos < SERVO_RIGHT; servoPos += 1) 
-  {                                 
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                      
-  }
-  delay(500);
-  pickUpFunc();
-  for(servoPos = SERVO_RIGHT; servoPos >= SERVO_MID; servoPos -= 1) 
-  {                                  
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                      
-  }
-  delay(500);
-  pickUpFunc();
-
-  for(servoPos = SERVO_MID; servoPos >= SERVO_LEFT; servoPos -= 1) 
-  {                                 
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                       
-  }
-  delay(500);
-  pickUpFunc();
-
-  for(servoPos = SERVO_LEFT; servoPos < SERVO_MID; servoPos += 1)
-  {                                
-    myservo.write(servoPos);              
-    delay(SERVO_ROTATE_DELAY);                    
-  }
-  delay(500);
-  pickUpFunc();
-}
-
-

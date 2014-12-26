@@ -94,3 +94,8 @@ void TestDrop() {
   dropBag();
   motorMove(200, directionDOWN, 255, NULL);  
 }
+
+void TestPullupAndMove() {
+ linearMotorToDroppingPosition (SECOND_POS, true); 
+  linearMotorToHomePosition (true);
+}
