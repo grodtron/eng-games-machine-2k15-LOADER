@@ -1,5 +1,10 @@
-// TODO: More weight sensor checking to see if we have the bag
+/* TODO:
+- Need to find a way to periodically check weight sensor while were pulling up. Right now it pulls up all the way end then checks it.
+X Improve pull up (home magnet) while moving linear motor (needs testing with real badger height)
+- Explore other grabbing techniques
+- Find ways to reduce grabbing time (currently ~3-4 minutes)
 
+*/
 #include <Wire.h>
 #include <Servo.h>
 
@@ -11,9 +16,9 @@
 #define SECOND_POS     1
 #define RANDOM_DELAY   700
 
-#define SERVO_MID      95
-#define SERVO_RIGHT    120
-#define SERVO_LEFT     70
+#define SERVO_MID      75
+#define SERVO_RIGHT    100
+#define SERVO_LEFT     50
 #define SERVO_ROTATE_DELAY 30
 
 // Number of steps for position
@@ -32,6 +37,7 @@
       | HOVER / JABS 
   ===BAGS====
                         */
+                        
 Servo myservo;
 int servoPos = 0;
 
@@ -47,11 +53,14 @@ const int linearAwayPin = 3;
 const int linearMidPin = A4;
 
 const int weightSensePin = A3;
-const int weightSenseThreshold = 518;
-const int twoBagThreshold = 590;
+const int weightSenseThreshold = 110;
+const int twoBagThreshold = weightSenseThreshold * 1.6;
 
 const int upperHallSensePin = A1;
 const int lowerHallSensePin = A2;
+
+int bag_count = 0;
+int failed_attempts = 0;
 
 #define MOTORS_OFF() do {     \
   digitalWrite(DOWNPin, LOW); \
@@ -64,6 +73,8 @@ void linearMotorToHomePosition (boolean lowerMagnetWhileMoving = false);
 void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving = false);
 
 void(*pickUpFunc)();
+
+#define RUN_TESTS 0
 
 void setup() {
   Wire.begin(LOADER_ADDRESS);
@@ -81,14 +92,14 @@ void setup() {
   pinMode(linearAwayPin, INPUT);
   pinMode(linearHomePin, INPUT);
   pinMode(linearMidPin, INPUT);
-  digitalWrite(linearMidPin, HIGH);
+//  digitalWrite(linearMidPin, HIGH);
   
   Wire.begin(LOADER_ADDRESS);
 
   Serial.begin (9600);
   
   myservo.attach(9); 
-  for(servoPos = 80; servoPos < 90; servoPos += 1)  
+  for(servoPos = 70; servoPos < SERVO_MID; servoPos += 1)  
   {                                
     myservo.write(servoPos);              
     delay(30);
@@ -98,30 +109,45 @@ void setup() {
   homeMagnet();
   //motorMove(MID_STEPS, directionDOWN, 255, NULL); while(1);
   pickUpFunc = jabRotate;
+#if RUN_TESTS
+  for(;;) runTests();
+  while(1);
+#endif
 }
 
-void loop() {   
-//  runTests
-//  runLoop();
+void loop() {
+//  while(bag_count < 8) {  
+   runLoop();
+//  }
 }
 
 void runLoop() {
   Serial.println("== loop ==");
   linearMotorToHomePosition(true);
   //homeMagnet();
+  Serial.print("Bags left: ");
+  Serial.print(8 - bag_count);
+  Serial.print(", Failed attempts: ");
+  Serial.println(failed_attempts);
+  
   Serial.println("Picking");
-  delay(250);
 
-  while(isBagPicked() == false){
+  boolean doPicking = true;
+  while(doPicking){
     pickUpFunc();
-    delay(250);
+    delay(150);
+    if(isBagPicked() == true) {
+      doPicking = false;
+    } else {
+      failed_attempts++;       
+    }
   }
 
-  delay(250);
+  delay(200);
   int static tower_to_drop = 0;
   
   if(isBagPicked() == true){
-    centerServo();
+    centerServo(25);
     //homeMagnet();
     int weight = analogRead(weightSensePin);
     if(weight > twoBagThreshold){
@@ -131,18 +157,23 @@ void runLoop() {
       dropBag();
     }else{
       linearMotorToDroppingPosition(SECOND_POS, true);
-      delay(250);
-      dropBag();
-//    sendFlapToClose(tower_to_drop);
-      tower_to_drop = (tower_to_drop + 1 ) % 2;
+      delay(150);
+      if(isBagPicked() == true) { // check one more time
+        dropBag();
+//      sendFlapToClose(tower_to_drop);
+        tower_to_drop = (tower_to_drop + 1 ) % 2;
+        bag_count++;        
+      }
     }
   }
   else
   {    
+    failed_attempts++;
     Serial.println("no bag :(");
   }  
 }
 
+// TODO: When to home, and when to change pickup technique
 void jabRotate() {
   static int count = 0;
   
@@ -150,12 +181,17 @@ void jabRotate() {
   triplePickUp();  
 
   if(++count % 9 == 0) {
-    pickUpFunc = swirlLeanback;
+    //pickUpFunc = swirlLeanback;
     centerServo();
-    linearMotorToHomePosition();       
+//    homeMagnet();
+//    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
+    linearMotorToHomePosition();     
+  }else if (count % 4 == 0) {
+    linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots   
   } 
 }
 
+// TODO: When to home
 void swirlLeanback() {
   static int count = 0;
     
@@ -163,8 +199,8 @@ void swirlLeanback() {
   
   if(++count % 3 == 0) {
     linearMotorToHomePosition(); 
-    homeMagnet();
-    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
+//    homeMagnet();
+//    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
   } else if (count == 7) {
     pickUpFunc = dropSpin;
     centerServo();
@@ -174,17 +210,19 @@ void swirlLeanback() {
   }
 }
 
+
 void dropSpin() {
-  static int count = 0;    
-  spinPickUp();
+  static int count = 0;
   
   if(++count % 2 == 0) {
     linearMotorToHomePosition(); 
     homeMagnet();
     motorMove(MID_STEPS, directionDOWN, 255, NULL);  
-  } else {
-    linearMotorToNewPickingPosition(RANDOM_DELAY);     
-  }
+  } 
+  
+  spinPickUp();
+
+  linearMotorToNewPickingPosition(RANDOM_DELAY);     
 }
 
 void stopMotorsOnLowerHallSensor(){

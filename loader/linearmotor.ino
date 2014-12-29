@@ -14,6 +14,7 @@ void linearMotorToHomePosition (boolean lowerMagnetWhileMoving) {
   digitalWrite(linearMotorAwayPin, LOW);
   
   if(lowerMagnetWhileMoving) {
+    delay(650); // we could wait till middle linear pin is hit to start dropping magnet, needs to be tested
     motorMove(MID_STEPS, directionDOWN, 255, NULL);    
   }
   
@@ -29,6 +30,7 @@ void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving) {
   digitalWrite(linearMotorAwayPin, HIGH);
   
   if(homeMagnetWhileMoving) {
+    delay(250); // wait a bit to reduce the shakiness
     homeMagnet();  
   }
   

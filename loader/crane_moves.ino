@@ -59,13 +59,13 @@ void rotateLoader() {
       break; 
     case 3:
       centerServo(SERVO_ROTATE_DELAY);   
-      linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots
-      homeMagnet();
-      motorMove(MID_STEPS, directionDOWN, 255, NULL);  
+//      linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots
+//      homeMagnet();
+//      motorMove(MID_STEPS, directionDOWN, 255, NULL);  
       break;
   }
   rotate_count = (rotate_count + 1) % 4;
-  delay(500);
+  delay(250);
 }
 
 void centerServo(int rotate_delay) {
