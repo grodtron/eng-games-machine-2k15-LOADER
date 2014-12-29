@@ -1,9 +1,9 @@
 void runTests() {
 //  TestPickDistance();
-  TestLinearMotor();
+//  TestLinearMotor();
 //  TestWeightSensor();
 //  TestServo();
-//  TestI2CArduino();
+  TestI2CArduino();
 //  TestDrop();
 //  TestPullupAndMove();
 //  TestHallSensor();
@@ -40,13 +40,15 @@ void TestPickDistance() { // for step calibration
 
 void TestLinearMotor() {
   Serial.println("====Testing rail motor====");
-  linearMotorToHomePosition();  
-//  while(!Serial.available()) ; Serial.read(); 
-//  linearMotorToDroppingPosition(FIRST_POS);
+  homeMagnet();
+  linearMotorToHomePosition(false);  
+  while(!Serial.available()) ; Serial.read(); 
+  linearMotorToDroppingPosition(FIRST_POS, false);
+  servoTurnLeft(30);
   while(!Serial.available()) ; Serial.read(); 
   linearMotorToDroppingPosition(SECOND_POS);
   while(!Serial.available()) ; Serial.read(); 
-  linearMotorToHomePosition();  
+  linearMotorToHomePosition(false);  
 }
 
 void TestServo() {

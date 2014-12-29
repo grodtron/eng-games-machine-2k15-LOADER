@@ -14,11 +14,11 @@ X Improve pull up (home magnet) while moving linear motor (needs testing with re
 #define directionDOWN  1
 #define FIRST_POS      0
 #define SECOND_POS     1
-#define RANDOM_DELAY   700
+#define RANDOM_DELAY   250
 
-#define SERVO_MID      75
-#define SERVO_RIGHT    100
-#define SERVO_LEFT     50
+#define SERVO_MID      100
+#define SERVO_RIGHT    115
+#define SERVO_LEFT     65
 #define SERVO_ROTATE_DELAY 30
 
 // Number of steps for position
@@ -39,12 +39,13 @@ X Improve pull up (home magnet) while moving linear motor (needs testing with re
                         */
                         
 Servo myservo;
+const int servoPin = 5;
 int servoPos = 0;
 
 int encoderPin = 12; // sensor is on T1 and is counted using the 16 bit timer/counter 1 
 
-int DOWNPin = 6;   // blue
-int UPPin = 9;      // white
+const int DOWNPin = 6;   // blue
+const int UPPin = 9;      // white
 
 const int linearMotorAwayPin = 10;
 const int linearMotorHomePin = 11;
@@ -65,8 +66,8 @@ int bag_count = 0;
 int failed_attempts = 0;
 
 #define MOTORS_OFF() do {     \
-  digitalWrite(DOWNPin, LOW); \
-  digitalWrite(UPPin, LOW);   \
+  analogWrite(DOWNPin, 0); \
+  analogWrite(UPPin, 0);   \
 } while(0)
 
 bool motorMove(int steps, int direction, int speed=255, void(*loopFunc)() = NULL);
@@ -100,33 +101,38 @@ void setup() {
 
   Serial.begin (9600);
   
-  myservo.attach(9); 
+  myservo.attach(servoPin); 
   for(servoPos = 70; servoPos < SERVO_MID; servoPos += 1)  
   {                                
     myservo.write(servoPos);              
     delay(30);
   }
   
-  linearMotorToHomePosition();
-  homeMagnet();
-  //motorMove(MID_STEPS, directionDOWN, 255, NULL); while(1);
-  pickUpFunc = jabRotate;
 #if RUN_TESTS
   for(;;) runTests();
   while(1);
 #endif
+
+  homeMagnet();
+  linearMotorToHomePosition();
+  //motorMove(MID_STEPS, directionDOWN, 255, NULL); while(1);
+  pickUpFunc = jabRotate;
+
+  homeMagnet();
 }
 
 void loop() {
-//  while(bag_count < 8) {  
+  while(bag_count < 8) {  
    runLoop();
-//  }
+  }
 }
 
 void runLoop() {
   Serial.println("== loop ==");
-  linearMotorToHomePosition(true);
-  //homeMagnet();
+  linearMotorToHomePosition(false);
+  homeMagnet();
+  motorMove(MID_STEPS, directionDOWN, 255, NULL);  
+
   Serial.print("Bags left: ");
   Serial.print(8 - bag_count);
   Serial.print(", Failed attempts: ");
@@ -143,10 +149,16 @@ void runLoop() {
     } else {
       failed_attempts++;       
     }
+    
+    if(failed_attempts > 10) {
+      homeMagnet();
+      motorMove(MID_STEPS, directionDOWN, 255, NULL);    
+      failed_attempts = 0;  
+    }
   }
 
-  delay(200);
-  int static tower_to_drop = 0;
+  delay(450);
+  int static tower_to_drop = 1;
   
   if(isBagPicked() == true){
     centerServo(25);
@@ -157,14 +169,25 @@ void runLoop() {
       Serial.print(weight);
       Serial.println("...dropping!");
       dropBag();
+      failed_attempts++;
     }else{
-      linearMotorToDroppingPosition(SECOND_POS, true);
-      delay(150);
+      failed_attempts = 0;
+      if(tower_to_drop == FIRST_POS) {
+        homeMagnet();
+        linearMotorToDroppingPosition(tower_to_drop, false);
+        servoTurnLeft(30);
+        
+      } else if (tower_to_drop == SECOND_POS) {
+        homeMagnet();
+        linearMotorToDroppingPosition(tower_to_drop, false);         
+      }
+      delay(400);
       if(isBagPicked() == true) { // check one more time
         dropBag();
-//      sendFlapToClose(tower_to_drop);
+        sendFlapToClose(tower_to_drop);
         tower_to_drop = (tower_to_drop + 1 ) % 2;
-        bag_count++;        
+        bag_count++; 
+        centerServo();       
       }
     }
   }
@@ -256,7 +279,7 @@ void startCountingUpTo(int count){
 void homeMagnet() {
   Serial.print("Homing magnet... ");
   analogWrite(UPPin, 255);
-  digitalWrite(DOWNPin, LOW);  
+  analogWrite(DOWNPin, LOW);  
   stopMotorsOnLowerHallSensor();
 }
 
@@ -268,12 +291,12 @@ bool motorMove(int steps, int direction, int speed, void(*loopFunc)()) {
   speed = speed % 256;
   
   if(direction == directionDOWN) { // move DOWN
-    digitalWrite(DOWNPin, HIGH);
+    analogWrite(DOWNPin, 255);
     analogWrite(UPPin, 255 - speed);
   }
   else { // move UPs
     analogWrite(UPPin, speed);
-    digitalWrite(DOWNPin, LOW);
+    analogWrite(DOWNPin, 0);
   }
   startCountingUpTo(steps);
 

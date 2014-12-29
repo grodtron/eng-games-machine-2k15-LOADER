@@ -30,12 +30,12 @@ void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving) {
   digitalWrite(linearMotorAwayPin, HIGH);
   
   if(homeMagnetWhileMoving) {
-    delay(250); // wait a bit to reduce the shakiness
+//    delay(250); // wait a bit to reduce the shakiness
     homeMagnet();  
   }
   
   if (pos == FIRST_POS) {
-    while( digitalRead(linearMidPin) );
+    while(! digitalRead(linearMidPin) && !digitalRead(linearAwayPin));
   } else if (pos == SECOND_POS) {
     while(! digitalRead(linearAwayPin) );
   }
