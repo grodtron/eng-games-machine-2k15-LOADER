@@ -41,23 +41,25 @@ X Improve pull up (home magnet) while moving linear motor (needs testing with re
 Servo myservo;
 int servoPos = 0;
 
-int encoderPin = 5; // sensor is on T1 and is counted using the 16 bit timer/counter 1 
-int DOWNPin = A0;   // blue
-int UPPin = 6;      // white
+int encoderPin = 12; // sensor is on T1 and is counted using the 16 bit timer/counter 1 
 
-const int linearMotorAwayPin = 7;
-const int linearMotorHomePin = 2;
+int DOWNPin = 6;   // blue
+int UPPin = 9;      // white
 
-const int linearHomePin = 4;
+const int linearMotorAwayPin = 10;
+const int linearMotorHomePin = 11;
+
+const int linearHomePin = 2;
 const int linearAwayPin = 3;
-const int linearMidPin = A4;
+const int linearMidPin  = 4;
 
-const int weightSensePin = A3;
-const int weightSenseThreshold = 110;
-const int twoBagThreshold = weightSenseThreshold * 1.6;
+const int weightSensePin = A0;
+const int weightSenseThreshold = 420;
+const int twoBagThreshold = 590;
 
-const int upperHallSensePin = A1;
-const int lowerHallSensePin = A2;
+const int upperHallSensePin = 7;
+const int lowerHallSensePin = 8;
+
 
 int bag_count = 0;
 int failed_attempts = 0;
