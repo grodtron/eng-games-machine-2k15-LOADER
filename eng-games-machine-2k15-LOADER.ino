@@ -1,9 +1,6 @@
 /* TODO:
 - Need to find a way to periodically check weight sensor while were pulling up. Right now it pulls up all the way end then checks it.
-X Improve pull up (home magnet) while moving linear motor (needs testing with real badger height)
-- Explore other grabbing techniques
-- Find ways to reduce grabbing time (currently ~3-4 minutes)
-
+- Test pullup and dropping magnet while moving linear motor
 */
 #include <Wire.h>
 #include <Servo.h>
@@ -56,7 +53,7 @@ const int linearMidPin  = 4;
 
 const int weightSensePin = A0;
 const int weightSenseThreshold = 420;
-const int twoBagThreshold = 590;
+const int twoBagThreshold = weightSenseThreshold * 1.24;
 
 const int upperHallSensePin = 7;
 const int lowerHallSensePin = 8;
@@ -78,6 +75,7 @@ void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving = fal
 void(*pickUpFunc)();
 
 #define RUN_TESTS 0
+int tower_to_drop = 1;
 
 void setup() {
   Wire.begin(LOADER_ADDRESS);
@@ -95,24 +93,23 @@ void setup() {
   pinMode(linearAwayPin, INPUT);
   pinMode(linearHomePin, INPUT);
   pinMode(linearMidPin, INPUT);
-//  digitalWrite(linearMidPin, HIGH);
   
   Wire.begin(LOADER_ADDRESS);
 
   Serial.begin (9600);
   
   myservo.attach(servoPin); 
-  for(servoPos = 70; servoPos < SERVO_MID; servoPos += 1)  
-  {                                
-    myservo.write(servoPos);              
-    delay(30);
-  }
+                          
+  servoPos = SERVO_MID;   
+  myservo.write(servoPos);              
   
 #if RUN_TESTS
   for(;;) runTests();
   while(1);
 #endif
-
+  tower_to_drop = getTowerToDrop();
+  Serial.print("Tower to drop: ");
+  Serial.println(tower_to_drop);
   homeMagnet();
   linearMotorToHomePosition();
   //motorMove(MID_STEPS, directionDOWN, 255, NULL); while(1);
@@ -158,11 +155,9 @@ void runLoop() {
   }
 
   delay(450);
-  int static tower_to_drop = 1;
   
   if(isBagPicked() == true){
     centerServo(25);
-    //homeMagnet();
     int weight = analogRead(weightSensePin);
     if(weight > twoBagThreshold){
       Serial.print("Two bags pulled of value: ");
@@ -198,7 +193,6 @@ void runLoop() {
   }  
 }
 
-// TODO: When to home, and when to change pickup technique
 void jabRotate() {
   static int count = 0;
   
@@ -209,14 +203,12 @@ void jabRotate() {
     //pickUpFunc = swirlLeanback;
     centerServo();
 //    homeMagnet();
-//    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
     linearMotorToHomePosition();     
   }else if (count % 4 == 0) {
     linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots   
   } 
 }
 
-// TODO: When to home
 void swirlLeanback() {
   static int count = 0;
     
@@ -224,8 +216,6 @@ void swirlLeanback() {
   
   if(++count % 3 == 0) {
     linearMotorToHomePosition(); 
-//    homeMagnet();
-//    motorMove(MID_STEPS, directionDOWN, 255, NULL);  
   } else if (count == 7) {
     pickUpFunc = dropSpin;
     centerServo();
@@ -327,4 +317,16 @@ void sendFlapToClose(int tower)
   Wire.write(tower);
   Wire.endTransmission();
   Serial.println(tower);
+}
+
+int getTowerToDrop() {
+  Wire.requestFrom(BADGER_ADDRESS, 1);    // request last tower dropped
+  delay(100);
+  int tower;
+  while(Wire.available()) {     
+    tower = Wire.read(); 
+    Serial.print("Received from request: ");
+    Serial.println(tower);         
+  }
+  return ((tower + 1) % 2); // got last drop, so tower to drop is next
 }

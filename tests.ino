@@ -1,9 +1,9 @@
 void runTests() {
 //  TestPickDistance();
 //  TestLinearMotor();
-//  TestWeightSensor();
+  TestWeightSensor();
 //  TestServo();
-  TestI2CArduino();
+//  TestI2CArduino();
 //  TestDrop();
 //  TestPullupAndMove();
 //  TestHallSensor();
@@ -14,6 +14,8 @@ void TestPickDistance() { // for step calibration
   Serial.println("====Testing step distances====");
 
   homeMagnet();
+  linearMotorToHomePosition();
+
   Serial.println("Testing from home to bag distance");
   motorMove(MID_STEPS + PICKUP_STEPS, directionDOWN, 255, NULL);
   while(!Serial.available()) ; Serial.read(); 
@@ -24,6 +26,12 @@ void TestPickDistance() { // for step calibration
   Serial.println("Testing from mid to bag distance");  
   motorMove(PICKUP_STEPS, directionDOWN, 255, NULL);  
   while(!Serial.available()) ; Serial.read(); 
+
+  for(int i = 0; i < 3; ++i) {
+    linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots   
+    while(!Serial.available()) ; Serial.read(); 
+  }
+
   Serial.println("Testing small jab distance");  
   motorMove(JAB_STEPS, directionUP, 255, NULL);
   while(!Serial.available()) ; Serial.read(); 

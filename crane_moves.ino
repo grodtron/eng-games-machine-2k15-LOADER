@@ -10,6 +10,18 @@ void triplePickUp() { // 3 jabs then test pick up
   motorMove(PICKUP_STEPS, directionUP, 255, NULL);
 }
 
+void emoJab() { // 3 jabs then test pick up
+  motorMove(PICKUP_STEPS, directionDOWN, 255, NULL);
+  for(int i = 0; i < 4; ++i) {
+    motorMove(JAB_STEPS+50, directionUP, 255, NULL);
+    delay(200);  
+    motorMove(JAB_STEPS+50, directionDOWN, 255, NULL);
+    delay(250);
+  }
+  
+  motorMove(PICKUP_STEPS, directionUP, 255, NULL);
+}
+
 void spinPickUp() { // full range swipe, then pick up
   motorMove(PICKUP_STEPS, directionDOWN, 255, NULL);
   servoTurnRight(SERVO_ROTATE_DELAY);
