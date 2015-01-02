@@ -52,12 +52,11 @@ const int linearAwayPin = 3;
 const int linearMidPin  = 4;
 
 const int weightSensePin = A0;
-const int weightSenseThreshold = 420;
-const int twoBagThreshold = weightSenseThreshold * 1.24;
+const int weightSenseThreshold = 430;
+const int twoBagThreshold = 485;
 
 const int upperHallSensePin = 7;
 const int lowerHallSensePin = 8;
-
 
 int bag_count = 0;
 int failed_attempts = 0;
@@ -104,8 +103,12 @@ void setup() {
   myservo.write(servoPos);              
   
 #if RUN_TESTS
-  for(;;) runTests();
-  while(1);
+  //for(;;) runTests();
+  while(1){
+      delay(2000);
+      int weight = analogRead(weightSensePin);
+      Serial.print("weight that is pulled: "); Serial.println(weight);
+  }
 #endif
   tower_to_drop = getTowerToDrop();
   Serial.print("Tower to drop: ");
@@ -141,7 +144,7 @@ void runLoop() {
   while(doPicking){
     pickUpFunc();
     delay(150);
-    if(isBagPicked() == true) {
+    if(isBagPicked()) {
       doPicking = false;
     } else {
       failed_attempts++;       
@@ -156,7 +159,7 @@ void runLoop() {
 
   delay(450);
   
-  if(isBagPicked() == true){
+  if(isBagPicked()){
     centerServo(25);
     int weight = analogRead(weightSensePin);
     if(weight > twoBagThreshold){
@@ -177,7 +180,7 @@ void runLoop() {
         linearMotorToDroppingPosition(tower_to_drop, false);         
       }
       delay(400);
-      if(isBagPicked() == true) { // check one more time
+      if(isBagPicked()) { // check one more time
         dropBag();
         sendFlapToClose(tower_to_drop);
         tower_to_drop = (tower_to_drop + 1 ) % 2;
