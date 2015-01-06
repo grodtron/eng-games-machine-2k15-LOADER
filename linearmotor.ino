@@ -1,15 +1,25 @@
 void linearMotorToNewPickingPosition (int delayTime) {
   Serial.print("Trying new picking position... ");
+
+  /*analogWrite(linearMotorHomePin, 0);
+  analogWrite(linearMotorAwayPin, 200);*/  
+  
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, HIGH);
   delay(delayTime);
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
+  /*analogWrite(linearMotorHomePin, 0);
+  analogWrite(linearMotorAwayPin, 0);*/
   Serial.println("done");
 }
 
 void linearMotorToHomePosition (boolean lowerMagnetWhileMoving) {
   Serial.print("Homing linear... ");
+
+  /*analogWrite(linearMotorHomePin, 200);
+  analogWrite(linearMotorAwayPin, 0);*/
+
   digitalWrite(linearMotorHomePin, HIGH);
   digitalWrite(linearMotorAwayPin, LOW);
   
@@ -19,6 +29,10 @@ void linearMotorToHomePosition (boolean lowerMagnetWhileMoving) {
   }
   
   while(! digitalRead(linearHomePin) );
+  
+  /*analogWrite(linearMotorHomePin, 0);
+  analogWrite(linearMotorAwayPin, 0);*/
+  
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
   Serial.println("done");
@@ -26,6 +40,10 @@ void linearMotorToHomePosition (boolean lowerMagnetWhileMoving) {
 
 void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving) {
   Serial.print("to dropping position linear... ");
+
+  /*analogWrite(linearMotorHomePin, 0);
+  analogWrite(linearMotorAwayPin, 200);*/
+
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, HIGH);
   
@@ -39,6 +57,10 @@ void linearMotorToDroppingPosition (int pos, boolean homeMagnetWhileMoving) {
   } else if (pos == SECOND_POS) {
     while(! digitalRead(linearAwayPin) );
   }
+
+  /*analogWrite(linearMotorHomePin, 0);
+  analogWrite(linearMotorAwayPin, 0);*/
+
   digitalWrite(linearMotorHomePin, LOW);
   digitalWrite(linearMotorAwayPin, LOW);
   Serial.println("done");

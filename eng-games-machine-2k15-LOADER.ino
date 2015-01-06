@@ -53,7 +53,7 @@ const int linearMidPin  = 4;
 
 const int weightSensePin = A0;
 const int weightSenseThreshold = 430;
-const int twoBagThreshold = 485;
+const int twoBagThreshold = 495;
 
 const int upperHallSensePin = 7;
 const int lowerHallSensePin = 8;
@@ -103,7 +103,7 @@ void setup() {
   myservo.write(servoPos);              
   
 #if RUN_TESTS
-  //for(;;) runTests();
+  for(;;) runTests();
   while(1){
       delay(2000);
       int weight = analogRead(weightSensePin);
@@ -143,7 +143,7 @@ void runLoop() {
   boolean doPicking = true;
   while(doPicking){
     pickUpFunc();
-    delay(150);
+    delay(250);
     if(isBagPicked()) {
       doPicking = false;
     } else {
@@ -157,10 +157,10 @@ void runLoop() {
     }
   }
 
-  delay(450);
+  delay(500);
   
   if(isBagPicked()){
-    centerServo(25);
+    centerServo(30);
     int weight = analogRead(weightSensePin);
     if(weight > twoBagThreshold){
       Serial.print("Two bags pulled of value: ");

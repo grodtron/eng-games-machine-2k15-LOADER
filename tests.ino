@@ -1,13 +1,12 @@
 void runTests() {
+//while(1) TestSwitches();
 //  TestPickDistance();
-//  TestLinearMotor();
-  TestWeightSensor();
+  TestLinearMotor();
+//  TestWeightSensor();
 //  TestServo();
-//  TestI2CArduino();
-//  TestDrop();
-//  TestPullupAndMove();
 //  TestHallSensor();
-//  TestSwitches();
+//  TestDrop();
+//  TestI2CArduino();
 }
 
 void TestPickDistance() { // for step calibration
@@ -28,9 +27,12 @@ void TestPickDistance() { // for step calibration
   while(!Serial.available()) ; Serial.read(); 
 
   for(int i = 0; i < 3; ++i) {
-    linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots   
-    while(!Serial.available()) ; Serial.read(); 
+    linearMotorToNewPickingPosition(RANDOM_DELAY); // Move back to a new position if we tried all 3 spots
+//    rotateLoader();
+    while(!Serial.available()) ; Serial.read();
   }
+
+  linearMotorToHomePosition();
 
   Serial.println("Testing small jab distance");  
   motorMove(JAB_STEPS, directionUP, 255, NULL);
@@ -62,7 +64,8 @@ void TestLinearMotor() {
 void TestServo() {
   Serial.println("====Testing loader servo====");
   homeMagnet();
-
+  linearMotorToHomePosition();
+  for(int i = 0; i < 3; ++i) {
   motorMove(MID_STEPS + PICKUP_STEPS, directionDOWN, 255, NULL);
   servoTurnRight(30);
   while(!Serial.available()) ; Serial.read(); 
@@ -72,6 +75,7 @@ void TestServo() {
   while(!Serial.available()) ; Serial.read(); 
   centerServo(30);
   while(!Serial.available()) ; Serial.read(); 
+  }
 }
 
 void TestI2CArduino() {
@@ -90,11 +94,12 @@ void TestWeightSensor() {
   homeMagnet();
   linearMotorToHomePosition();
   motorMove(MID_STEPS, directionDOWN, 255, NULL);  
-  for(; ; ) {
+  for(int i = 0; i < 10; ++i) {
     int weight = analogRead(weightSensePin);
     Serial.print("weight pulled value: ");
     Serial.println(weight);
-    delay(1250);
+    while(!Serial.available()) ; Serial.read(); 
+//    delay(1250);
   }  
 }
 
